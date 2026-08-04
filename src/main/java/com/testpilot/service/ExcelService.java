@@ -10,4 +10,8 @@ public interface ExcelService {
     default ImportResult importAutomationSteps(Path file, String sheetName) {
         return importAutomationSteps(file);
     }
+
+    default ImportResult importAutomationSteps(Path file, String sheetName, int startRow, int startColumn) {
+        return importAutomationSteps(file, sheetName);
+    }
 }

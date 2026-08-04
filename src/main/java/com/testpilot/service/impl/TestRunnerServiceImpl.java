@@ -54,10 +54,14 @@ public final class TestRunnerServiceImpl implements TestRunnerService {
     @Override
     public TestRun start(RunTestRequest request, RunEventListener listener) {
         validate(request);
-        ImportResult imported = excelService.importAutomationSteps(request.excelFile(), request.feature().name());
+        ImportResult imported = excelService.importAutomationSteps(request.excelFile(), request.feature().name(),
+                request.excelStartRow(), request.excelStartColumn());
         List<TestStep> steps = imported.steps().stream()
                 .filter(TestStep::enabled)
                 .collect(Collectors.toList());
+        if (steps.isEmpty()) {
+            throw new IllegalArgumentException("File Excel chưa có bước automation để chạy. Nếu đây là template manual, hãy bổ sung cột Thao tác/Đối tượng hoặc dùng file automation template.");
+        }
         String id = ID_TIME.format(LocalDateTime.now()) + "-" + UUID.randomUUID().toString().substring(0, 6);
         Path projectDirectory = config.projectDirectory(request.project().id(), request.project().name());
         Path excelDirectory = projectDirectory.resolve("excel");
@@ -113,7 +117,7 @@ public final class TestRunnerServiceImpl implements TestRunnerService {
 
     private void execute(RunTestRequest request, List<TestStep> steps, TestRun queued,
                          RunEventListener listener, AtomicBoolean cancelled) {
-        TestRun current = queued.withProgress(RunStatus.RUNNING, 0, 0, 0, "Khoi dong trinh duyet", "", null);
+        TestRun current = queued.withProgress(RunStatus.RUNNING, 0, 0, 0, "Khởi động trình duyệt", "", null);
         runRepository.update(current);
         TestRun startedRun = current;
         safeListener(() -> listener.onStarted(startedRun));
@@ -152,7 +156,7 @@ public final class TestRunnerServiceImpl implements TestRunnerService {
                 int progress = (int) Math.round(((index + 1) * 100.0) / steps.size());
                 RunStatus status = cancelled.get() ? RunStatus.CANCELLED : RunStatus.RUNNING;
                 current = current.withProgress(status, progress, passed, failed,
-                        step.testCaseId() + " · buoc " + step.stepNumber() + " · " + step.action(),
+                        step.testCaseId() + " · bước " + step.stepNumber() + " · " + step.action(),
                         result.passed() ? "" : result.error(), null);
                 runRepository.update(current);
                 TestRun progressRun = current;

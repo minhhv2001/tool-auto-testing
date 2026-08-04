@@ -1,4 +1,4 @@
-# Kien truc TestPilot Studio
+# Kien truc AUTO TESTING IMD
 
 ## Vi sao chon desktop
 

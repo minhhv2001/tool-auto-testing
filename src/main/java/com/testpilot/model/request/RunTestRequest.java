@@ -12,14 +12,24 @@ public final class RunTestRequest {
     private final Path excelFile;
     private final boolean headless;
     private final Map<String, String> sessionSecrets;
+    private final int excelStartRow;
+    private final int excelStartColumn;
 
     public RunTestRequest(TestProject project, TestFeature feature, Path excelFile,
                           boolean headless, Map<String, String> sessionSecrets) {
+        this(project, feature, excelFile, headless, sessionSecrets, 1, 1);
+    }
+
+    public RunTestRequest(TestProject project, TestFeature feature, Path excelFile,
+                          boolean headless, Map<String, String> sessionSecrets,
+                          int excelStartRow, int excelStartColumn) {
         this.project = project;
         this.feature = feature;
         this.excelFile = excelFile;
         this.headless = headless;
         this.sessionSecrets = sessionSecrets;
+        this.excelStartRow = Math.max(1, excelStartRow);
+        this.excelStartColumn = Math.max(1, excelStartColumn);
     }
 
     public TestProject project() {
@@ -40,5 +50,13 @@ public final class RunTestRequest {
 
     public Map<String, String> sessionSecrets() {
         return sessionSecrets;
+    }
+
+    public int excelStartRow() {
+        return excelStartRow;
+    }
+
+    public int excelStartColumn() {
+        return excelStartColumn;
     }
 }

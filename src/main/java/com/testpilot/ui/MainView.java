@@ -24,6 +24,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.*;
+import javafx.scene.shape.Rectangle;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -67,6 +68,8 @@ public final class MainView extends BorderPane {
     private TextField usernameField;
     private PasswordField passwordField;
     private CheckBox headlessCheck;
+    private TextField excelStartRowField;
+    private TextField excelStartColumnField;
     private Path selectedExcelFile;
     private TestProject selectedProject;
     private TestFeature selectedFeature;
@@ -112,8 +115,8 @@ public final class MainView extends BorderPane {
         ImageView logo = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/assets/testpilot-logo.png"))));
         logo.setFitWidth(44); logo.setFitHeight(44); logo.setPreserveRatio(true);
         VBox brandText = new VBox(1);
-        Label name = new Label("TestPilot"); name.getStyleClass().add("brand-name");
-        Label studio = new Label("AUTOMATION STUDIO"); studio.getStyleClass().add("brand-subtitle");
+        Label name = new Label("AUTO TESTING IMD"); name.getStyleClass().add("brand-name");
+        Label studio = new Label("KIỂM THỬ TỰ ĐỘNG"); studio.getStyleClass().add("brand-subtitle");
         brandText.getChildren().addAll(name, studio); brand.getChildren().addAll(logo, brandText);
         Label menu = new Label("KHÔNG GIAN LÀM VIỆC"); menu.getStyleClass().add("sidebar-section");
         VBox.setMargin(menu, new Insets(26, 8, 2, 8));
@@ -169,17 +172,24 @@ public final class MainView extends BorderPane {
         Button addFeature = iconButton("＋"); addFeature.setTooltip(new Tooltip("Thêm chức năng vào dự án đang chọn")); addFeature.setOnAction(event -> createFeatureDialog());
         Region treeSpacer = new Region(); HBox.setHgrow(treeSpacer, Priority.ALWAYS); treeHeader.getChildren().addAll(treeSpacer, addFeature);
         projectTree = new TreeView<>(); projectTree.setShowRoot(false); projectTree.setCellFactory(tree -> new TreeCell<Object>() {
+            {
+                setMaxWidth(Double.MAX_VALUE);
+                setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            }
+
             @Override protected void updateItem(Object item, boolean empty) {
                 super.updateItem(item, empty); getStyleClass().removeAll("project-tree-item", "feature-tree-item");
                 if (empty || item == null) { setText(null); setGraphic(null); setContextMenu(null); return; }
                 if (item instanceof TestProject) {
                     TestProject project = (TestProject) item; getStyleClass().add("project-tree-item");
-                    Label name = new Label("◇  " + project.name()); name.getStyleClass().add("tree-project-name"); HBox.setHgrow(name, Priority.ALWAYS);
+                    setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+                    Label name = new Label("◇  " + project.name()); name.getStyleClass().add("tree-project-name"); name.setMaxWidth(Double.MAX_VALUE); HBox.setHgrow(name, Priority.ALWAYS);
+                    Region rowSpacer = new Region(); HBox.setHgrow(rowSpacer, Priority.ALWAYS);
                     Button detail = treeRowButton("▤"); detail.setTooltip(new Tooltip("Xem tổng quan dự án")); detail.setOnAction(e -> showProjectOverview(project));
                     Button delete = treeRowButton("×"); delete.getStyleClass().add("tree-delete-button"); delete.setTooltip(new Tooltip("Xóa dự án và toàn bộ tệp đi kèm")); delete.setOnAction(e -> deleteProject(project));
-                    HBox row = new HBox(8, name, detail, delete); row.setAlignment(Pos.CENTER_LEFT); row.setMaxWidth(Double.MAX_VALUE);
-                    row.prefWidthProperty().bind(widthProperty().subtract(18)); setText(null); setGraphic(row); setContextMenu(null);
-                } else if (item instanceof TestFeature) { setText("  └  " + ((TestFeature) item).name()); setGraphic(null); getStyleClass().add("feature-tree-item"); }
+                    HBox row = new HBox(8, name, rowSpacer, detail, delete); row.setAlignment(Pos.CENTER_LEFT); row.setMaxWidth(Double.MAX_VALUE); row.setFillHeight(true);
+                    row.prefWidthProperty().bind(tree.widthProperty().subtract(52)); setText(null); setGraphic(row); setContextMenu(null);
+                } else if (item instanceof TestFeature) { setContentDisplay(ContentDisplay.TEXT_ONLY); setText("  └  " + ((TestFeature) item).name()); setGraphic(null); getStyleClass().add("feature-tree-item"); }
             }
         }); VBox.setVgrow(projectTree, Priority.ALWAYS);
         treeCard.getChildren().addAll(treeHeader, projectTree);
@@ -195,17 +205,23 @@ public final class MainView extends BorderPane {
         fileDrop.getChildren().addAll(fileIcon, fileTitle, excelFileLabel, fileActions);
         fileDrop.setOnDragOver(event -> { Dragboard board = event.getDragboard(); if (board.hasFiles() && board.getFiles().stream().anyMatch(file -> isExcelFile(file.toPath()))) event.acceptTransferModes(TransferMode.COPY); event.consume(); });
         fileDrop.setOnDragDropped(event -> { boolean completed = false; for (java.io.File file : event.getDragboard().getFiles()) { if (isExcelFile(file.toPath())) { selectExcelFile(file.toPath()); completed = true; break; } } event.setDropCompleted(completed); event.consume(); });
+        excelStartRowField = new TextField("1"); excelStartRowField.setPromptText("VD: 1");
+        excelStartColumnField = new TextField("A"); excelStartColumnField.setPromptText("VD: A hoặc 1");
+        GridPane readOptions = formGrid();
+        readOptions.add(fieldLabel("Dòng header"), 0, 0); readOptions.add(excelStartRowField, 1, 0);
+        readOptions.add(fieldLabel("Cột bắt đầu"), 0, 1); readOptions.add(excelStartColumnField, 1, 1);
         validationLabel = new Label("Chưa kiểm tra tệp"); validationLabel.getStyleClass().addAll("validation-message", "validation-neutral"); Button validate = secondaryButton("✓  Kiểm tra tệp"); validate.setOnAction(e -> validateExcel());
         usernameField = new TextField(); usernameField.setPromptText("${USERNAME} hoặc tài khoản kiểm thử"); passwordField = new PasswordField(); passwordField.setPromptText("${PASSWORD} hoặc mật khẩu kiểm thử");
         headlessCheck = new CheckBox("Chạy ẩn trình duyệt (không mở cửa sổ Chrome)"); headlessCheck.setSelected(false);
         GridPane credentials = formGrid(); credentials.add(fieldLabel("Tài khoản test"), 0, 0); credentials.add(usernameField, 1, 0); credentials.add(fieldLabel("Mật khẩu test"), 0, 1); credentials.add(passwordField, 1, 1); credentials.add(new Label(""), 0, 2); credentials.add(headlessCheck, 1, 2);
         HBox actions = new HBox(12, validate, validationLabel); actions.setAlignment(Pos.CENTER_LEFT); Button start = primaryButton("▶  CHẠY KIỂM THỬ"); start.getStyleClass().add("run-button"); start.setMaxWidth(Double.MAX_VALUE); start.setOnAction(e -> startRun());
-        runCard.getChildren().addAll(runHeader, selection, separator(), fileDrop, actions, separator(), credentials, start); split.getItems().addAll(treeCard, runCard); content.getChildren().addAll(heading, split); VBox.setVgrow(split, Priority.ALWAYS); return content;
+        split.setPrefHeight(720);
+        runCard.getChildren().addAll(runHeader, selection, separator(), fileDrop, readOptions, actions, separator(), credentials, start); split.getItems().addAll(treeCard, runCard); content.getChildren().addAll(heading, split); VBox.setVgrow(split, Priority.ALWAYS); return scroll(content);
     }
 
     private Node buildRuns() {
         VBox content = page("runs"); content.getChildren().add(pageHeading("Tiến trình kiểm thử", "Lọc theo dự án/chức năng và xem đầy đủ lỗi, ảnh, video, trace, báo cáo."));
-        HBox filters = new HBox(10); filters.getStyleClass().add("filter-bar");
+        FlowPane filters = new FlowPane(10, 10); filters.getStyleClass().add("filter-bar");
         projectFilter = new ComboBox<>(); projectFilter.setPromptText("Tất cả dự án"); projectFilter.setPrefWidth(220);
         featureFilter = new ComboBox<>(); featureFilter.setPromptText("Tất cả chức năng"); featureFilter.setPrefWidth(220); Button clear = secondaryButton("Xóa bộ lọc"); clear.setOnAction(e -> { projectFilter.setValue(null); featureFilter.setValue(null); applyRunFilter(); });
         filters.getChildren().addAll(new Label("Lọc tiến trình:"), projectFilter, featureFilter, clear);
@@ -215,25 +231,35 @@ public final class MainView extends BorderPane {
         VBox detail = card(); detailTitle = new Label("Chọn một tiến trình"); detailTitle.getStyleClass().add("section-title"); detailMeta = new Label("Thông tin và bằng chứng sẽ hiển thị tại đây."); detailMeta.getStyleClass().add("muted");
         detailProgress = new ProgressBar(0); detailProgress.setMaxWidth(Double.MAX_VALUE); detailPercent = valueLabel("0%"); HBox progress = new HBox(12, detailProgress, detailPercent); progress.setAlignment(Pos.CENTER_LEFT); HBox.setHgrow(detailProgress, Priority.ALWAYS);
         detailStep = new Label("Chưa có bước nào"); detailStep.getStyleClass().add("current-step"); detailError = new Label(""); detailError.setWrapText(true); detailError.getStyleClass().add("error-text");
-        StackPane previewFrame = new StackPane(); previewFrame.getStyleClass().add("preview-frame"); livePreview = new ImageView(); livePreview.setPreserveRatio(true); livePreview.setFitWidth(610); livePreview.setFitHeight(320);
+        StackPane previewFrame = new StackPane(); previewFrame.getStyleClass().add("preview-frame"); previewFrame.setAlignment(Pos.CENTER); previewFrame.setMinHeight(210); previewFrame.setPrefHeight(260);
+        Rectangle previewClip = new Rectangle();
+        previewClip.widthProperty().bind(previewFrame.widthProperty());
+        previewClip.heightProperty().bind(previewFrame.heightProperty());
+        previewClip.setArcWidth(18);
+        previewClip.setArcHeight(18);
+        previewFrame.setClip(previewClip);
+        livePreview = new ImageView(); livePreview.setPreserveRatio(true); livePreview.setSmooth(true);
+        livePreview.fitWidthProperty().bind(previewFrame.widthProperty().subtract(20));
+        livePreview.fitHeightProperty().bind(previewFrame.heightProperty().subtract(20));
         Label placeholder = new Label("XEM TRƯỚC TRỰC TIẾP\nẢnh trình duyệt sẽ cập nhật sau mỗi bước"); placeholder.setTextAlignment(javafx.scene.text.TextAlignment.CENTER); placeholder.getStyleClass().add("preview-placeholder"); livePreview.imageProperty().addListener((o, oldImage, newImage) -> placeholder.setVisible(newImage == null)); previewFrame.getChildren().addAll(placeholder, livePreview);
         stopButton = dangerButton("■  Dừng tiến trình"); stopButton.setTooltip(new Tooltip("Dừng tiến trình đang chạy")); stopButton.setOnAction(e -> stopSelectedRun());
         reportButton = secondaryButton("Xuất kết quả kiểm thử"); reportButton.setTooltip(new Tooltip("Mở tệp Excel kết quả")); reportButton.setOnAction(e -> openArtifact("test-results.xlsx"));
         videoButton = secondaryButton("Mở video kiểm thử"); videoButton.setTooltip(new Tooltip("Mở video thao tác trên trình duyệt")); videoButton.setOnAction(e -> openArtifact("run-video.webm"));
         traceButton = secondaryButton("Mở trace chẩn đoán"); traceButton.setTooltip(new Tooltip("Mở trace để xem lại từng bước và lỗi")); traceButton.setOnAction(e -> openArtifact("trace.zip"));
         folderButton = secondaryButton("Mở thư mục dự án"); folderButton.setTooltip(new Tooltip("Mở thư mục chứa Excel và toàn bộ kết quả")); folderButton.setOnAction(e -> openArtifact(""));
-        HBox artifactButtons = new HBox(8, stopButton, reportButton, videoButton, traceButton, folderButton);
+        FlowPane artifactButtons = new FlowPane(8, 8, stopButton, reportButton, videoButton, traceButton, folderButton); artifactButtons.setAlignment(Pos.CENTER_LEFT);
         errorList = new ListView<>(); errorList.setPlaceholder(new Label("Chưa có lỗi nào. Các lỗi của lần chạy sẽ hiển thị ở đây.")); errorList.setPrefHeight(130); errorList.getStyleClass().add("error-list");
         VBox errors = card(); errors.setPadding(new Insets(14)); errors.getChildren().addAll(sectionHeader("Lỗi kiểm thử", "Danh sách lỗi để kiểm tra nhanh"), errorList);
-        detail.getChildren().addAll(detailTitle, detailMeta, progress, detailStep, detailError, previewFrame, artifactButtons, errors); VBox.setVgrow(previewFrame, Priority.ALWAYS);
-        split.getItems().addAll(tableCard, detail); content.getChildren().add(split); VBox.setVgrow(split, Priority.ALWAYS); return content;
+        detail.getChildren().addAll(detailTitle, detailMeta, progress, detailStep, detailError, previewFrame, artifactButtons, errors);
+        split.setPrefHeight(760);
+        split.getItems().addAll(tableCard, detail); content.getChildren().add(split); VBox.setVgrow(split, Priority.ALWAYS); return scroll(content);
     }
 
     private Node buildSettings() {
         VBox content = page("settings"); content.getChildren().add(pageHeading("Cấu hình", "Các giá trị có thể chỉnh sửa và lưu vào config/application.properties."));
         VBox editor = card(); editor.getChildren().add(sectionHeader("Thiết lập runner", "Chỉ mật khẩu không được ghi vào file cấu hình")); GridPane form = formGrid();
         configUrlField = new TextField(controller.config().get("env.BASE_URL", "")); configUsernameField = new TextField(controller.config().get("env.USERNAME", "")); configPasswordField = new PasswordField(); configPasswordField.setPromptText("Không ghi vào file cấu hình");
-        configHeadlessCheck = new CheckBox("Chạy ẩn trình duyệt theo mặc định"); configHeadlessCheck.setSelected(controller.config().getBoolean("runner.headless", false)); configTimeoutField = new TextField(Integer.toString(controller.config().getInt("runner.defaultTimeoutMs", 15000))); configTemplateField = new TextField(controller.config().get("template.defaultFile", "sample-data/TestPilot_BanHang_CayChucNang.xlsx")); configTemplateField.setPromptText("sample-data/Mau_testcase.xlsx");
+        configHeadlessCheck = new CheckBox("Chạy ẩn trình duyệt theo mặc định"); configHeadlessCheck.setSelected(controller.config().getBoolean("runner.headless", false)); configTimeoutField = new TextField(Integer.toString(controller.config().getInt("runner.defaultTimeoutMs", 15000))); configTemplateField = new TextField(controller.config().get("template.defaultFile", "sample-data/AUTO_TESTING_IMD_BanHang_CayChucNang.xlsx")); configTemplateField.setPromptText("sample-data/Mau_testcase.xlsx");
         form.add(fieldLabel("URL mặc định"), 0, 0); form.add(configUrlField, 1, 0); form.add(fieldLabel("Tài khoản mặc định"), 0, 1); form.add(configUsernameField, 1, 1); form.add(fieldLabel("Mật khẩu phiên này"), 0, 2); form.add(configPasswordField, 1, 2); form.add(fieldLabel("Thời gian chờ (ms)"), 0, 3); form.add(configTimeoutField, 1, 3); form.add(fieldLabel("Tệp mẫu testcase"), 0, 4); form.add(configTemplateField, 1, 4); form.add(new Label(""), 0, 5); form.add(configHeadlessCheck, 1, 5);
         Button save = primaryButton("Lưu cấu hình"); save.setOnAction(e -> saveSettings()); editor.getChildren().addAll(form, save);
         VBox guide = card(); guide.getChildren().addAll(sectionHeader("Cách dùng", "Các khóa thao tác trong Excel vẫn giữ tiếng Anh để runner nhận diện."), bullet("URL, tài khoản, thời gian chờ và đường dẫn tệp mẫu có thể sửa trực tiếp rồi bấm Lưu cấu hình."), bullet("Tệp mẫu nên để đường dẫn tương đối như sample-data/Mau_testcase.xlsx để dễ thay thế, cập nhật và mang sang máy khác."), bullet("Mật khẩu chỉ dùng trong phiên chạy, không ghi vào application.properties."), bullet("Trace là gói chẩn đoán để xem lại DOM, ảnh và từng bước khi lỗi."), bullet("Mỗi dự án có thư mục riêng chứa file Excel và kết quả; xóa dự án sẽ xóa cả thư mục đó."));
@@ -336,9 +362,9 @@ public final class MainView extends BorderPane {
         VBox tableCard = card(); tableCard.getStyleClass().add("project-overview-table-card");
         tableCard.getChildren().addAll(sectionHeader("Cấu trúc kiểm thử", "Mở rộng từng dòng để xem nhóm chức năng, chức năng con và testcase"), table);
         VBox.setVgrow(table, Priority.ALWAYS);
-        VBox content = new VBox(24, kpis, tableCard); content.setPadding(new Insets(4));
-        VBox.setMargin(tableCard, new Insets(4, 0, 0, 0));
-        dialog.getDialogPane().setContent(content); dialog.getDialogPane().setPrefWidth(1420); dialog.getDialogPane().setPrefHeight(720);
+        VBox content = new VBox(28, kpis, tableCard); content.setPadding(new Insets(4));
+        VBox.setMargin(tableCard, new Insets(8, 0, 0, 0));
+        dialog.getDialogPane().setContent(content); dialog.getDialogPane().setPrefWidth(1420); dialog.getDialogPane().setPrefHeight(760);
         dialog.showAndWait();
     }
 
@@ -348,26 +374,34 @@ public final class MainView extends BorderPane {
 
     private TreeTableView<OverviewRow> createProjectOverviewTable(TreeItem<OverviewRow> root) {
         TreeTableView<OverviewRow> table = new TreeTableView<>(root); table.setShowRoot(false); table.setColumnResizePolicy(TreeTableView.CONSTRAINED_RESIZE_POLICY); table.setPrefHeight(420);
+        Set<OverviewRow> expandedInputs = Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<OverviewRow> expandedExpected = Collections.newSetFromMap(new IdentityHashMap<>());
         TreeTableColumn<OverviewRow, String> item = new TreeTableColumn<>("HẠNG MỤC");
         item.setPrefWidth(285); item.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().getValue().name()));
         TreeTableColumn<OverviewRow, String> description = new TreeTableColumn<>("MÔ TẢ");
         description.setPrefWidth(205); description.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().getValue().description()));
         TreeTableColumn<OverviewRow, String> input = new TreeTableColumn<>("DỮ LIỆU VÀO");
         input.setPrefWidth(165); input.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().getValue().input()));
+        input.setCellFactory(column -> overviewExpandableTextCell(expandedInputs));
         TreeTableColumn<OverviewRow, String> expected = new TreeTableColumn<>("KẾT QUẢ MONG ĐỢI");
         expected.setPrefWidth(205); expected.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().getValue().expected()));
+        expected.setCellFactory(column -> overviewExpandableTextCell(expandedExpected));
         TreeTableColumn<OverviewRow, String> testCases = new TreeTableColumn<>("TESTCASE");
         testCases.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().getValue().testCaseCount() == 0 ? "—" : Integer.toString(data.getValue().getValue().testCaseCount())));
         testCases.setCellFactory(column -> overviewCenteredCell(""));
+        centerOverviewColumn(testCases);
         TreeTableColumn<OverviewRow, String> passed = new TreeTableColumn<>("✓ ĐẠT");
         passed.setCellValueFactory(data -> new ReadOnlyStringWrapper(displayCount(data.getValue().getValue().passed(), "✓")));
         passed.setCellFactory(column -> overviewCenteredCell("overview-pass"));
+        centerOverviewColumn(passed);
         TreeTableColumn<OverviewRow, String> failed = new TreeTableColumn<>("✕ KHÔNG ĐẠT");
         failed.setCellValueFactory(data -> new ReadOnlyStringWrapper(displayCount(data.getValue().getValue().failed(), "✕")));
         failed.setCellFactory(column -> overviewCenteredCell("overview-fail"));
+        centerOverviewColumn(failed);
         TreeTableColumn<OverviewRow, String> latest = new TreeTableColumn<>("TỔNG HỢP");
         latest.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().getValue().latestResult()));
         latest.setCellFactory(column -> overviewCenteredCell("overview-latest"));
+        centerOverviewColumn(latest);
         table.getColumns().addAll(item, description, input, expected, testCases, passed, failed, latest);
         table.setRowFactory(view -> new TreeTableRow<OverviewRow>() {
             @Override protected void updateItem(OverviewRow value, boolean empty) {
@@ -382,12 +416,63 @@ public final class MainView extends BorderPane {
         return table;
     }
 
+    private static TreeTableCell<OverviewRow, String> overviewExpandableTextCell(Set<OverviewRow> expandedRows) {
+        return new TreeTableCell<OverviewRow, String>() {
+            private final Label text = new Label();
+            private final Hyperlink toggle = new Hyperlink();
+            private final VBox box = new VBox(3, text, toggle);
+
+            {
+                text.setWrapText(false);
+                text.setTextOverrun(OverrunStyle.ELLIPSIS);
+                text.maxWidthProperty().bind(widthProperty().subtract(12));
+                toggle.getStyleClass().add("overview-more-link");
+                toggle.setOnAction(event -> {
+                    OverviewRow row = getTreeTableRow() == null ? null : getTreeTableRow().getItem();
+                    if (row == null) return;
+                    if (expandedRows.contains(row)) expandedRows.remove(row);
+                    else expandedRows.add(row);
+                    getTreeTableView().refresh();
+                });
+            }
+
+            @Override protected void updateItem(String value, boolean empty) {
+                super.updateItem(value, empty);
+                getStyleClass().removeAll("overview-text-cell");
+                if (empty || value == null || value.isBlank()) {
+                    setText(null);
+                    setGraphic(null);
+                    return;
+                }
+                OverviewRow row = getTreeTableRow() == null ? null : getTreeTableRow().getItem();
+                boolean longText = value.length() > 55;
+                boolean expanded = row != null && expandedRows.contains(row);
+                text.setWrapText(expanded);
+                text.setMaxHeight(expanded ? Double.MAX_VALUE : 18);
+                text.setPrefHeight(expanded ? Region.USE_COMPUTED_SIZE : 18);
+                text.setText(longText && !expanded ? value.substring(0, 55).trim() + "..." : value);
+                toggle.setVisible(longText);
+                toggle.setManaged(longText);
+                toggle.setText(expanded ? "Thu gọn" : "Xem thêm");
+                getStyleClass().add("overview-text-cell");
+                setText(null);
+                setGraphic(box);
+            }
+        };
+    }
+
     private static TreeTableCell<OverviewRow, String> overviewCenteredCell(String styleClass) {
         return new TreeTableCell<OverviewRow, String>() {
+            {
+                setAlignment(Pos.CENTER);
+                setStyle("-fx-alignment: CENTER;");
+            }
+
             @Override protected void updateItem(String value, boolean empty) {
                 super.updateItem(value, empty);
                 setText(empty ? null : value);
                 setAlignment(Pos.CENTER);
+                setStyle("-fx-alignment: CENTER;");
                 getStyleClass().removeAll("overview-pass", "overview-fail", "overview-latest", "overview-center");
                 if (!empty) {
                     getStyleClass().add("overview-center");
@@ -395,6 +480,11 @@ public final class MainView extends BorderPane {
                 }
             }
         };
+    }
+
+    private static void centerOverviewColumn(TreeTableColumn<OverviewRow, String> column) {
+        column.getStyleClass().add("overview-center-column");
+        column.setStyle("-fx-alignment: CENTER;");
     }
 
     private static String displayCount(int value, String icon) { return value == 0 ? "—" : icon + " " + value; }
@@ -470,9 +560,9 @@ public final class MainView extends BorderPane {
         catch (IOException error) { showMessage(Alert.AlertType.ERROR, "Không lưu được mẫu testcase", "Hãy kiểm tra quyền ghi tệp rồi thử lại."); }
     }
 
-    private void validateExcel() { if (selectedExcelFile == null) { showMessage(Alert.AlertType.WARNING, "Chưa có tệp", "Hãy chọn tệp Excel trước."); return; } try { ImportResult result = controller.validateExcel(selectedExcelFile, selectedFeature == null ? null : selectedFeature.name()); setValidation("Hợp lệ · " + result.testCaseCount() + " testcase · " + result.steps().size() + " bước", true, false); } catch (RuntimeException error) { setValidation("Không hợp lệ · " + error.getMessage(), false, true); } }
+    private void validateExcel() { if (selectedExcelFile == null) { showMessage(Alert.AlertType.WARNING, "Chưa có tệp", "Hãy chọn tệp Excel trước."); return; } try { ImportResult result = controller.validateExcel(selectedExcelFile, selectedFeature == null ? null : selectedFeature.name(), excelStartRow(), excelStartColumn()); String warning = result.warnings().isEmpty() ? "" : " · " + result.warnings().get(0); setValidation("Hợp lệ · " + result.testCaseCount() + " testcase · " + result.steps().size() + " bước" + warning, true, false); } catch (RuntimeException error) { setValidation("Không hợp lệ · " + error.getMessage(), false, true); } }
 
-    private void startRun() { try { if (selectedProject == null) throw new IllegalArgumentException("Hãy chọn dự án"); if (selectedFeature == null) throw new IllegalArgumentException("Hãy chọn chức năng"); if (selectedExcelFile == null) throw new IllegalArgumentException("Hãy chọn tệp Excel"); controller.validateExcel(selectedExcelFile, selectedFeature.name()); TestRun run = controller.startRun(selectedProject, selectedFeature, selectedExcelFile, headlessCheck.isSelected(), usernameField.getText(), passwordField.getText()); passwordField.clear(); showPage("runs"); runTable.getSelectionModel().select(run); showRunDetail(run); } catch (RuntimeException error) { showError(error); } }
+    private void startRun() { try { if (selectedProject == null) throw new IllegalArgumentException("Hãy chọn dự án"); if (selectedFeature == null) throw new IllegalArgumentException("Hãy chọn chức năng"); if (selectedExcelFile == null) throw new IllegalArgumentException("Hãy chọn tệp Excel"); int startRow = excelStartRow(); int startColumn = excelStartColumn(); controller.validateExcel(selectedExcelFile, selectedFeature.name(), startRow, startColumn); TestRun run = controller.startRun(selectedProject, selectedFeature, selectedExcelFile, headlessCheck.isSelected(), usernameField.getText(), passwordField.getText(), startRow, startColumn); passwordField.clear(); showPage("runs"); runTable.getSelectionModel().select(run); showRunDetail(run); } catch (RuntimeException error) { showError(error); } }
 
     private void stopSelectedRun() { TestRun run = runTable.getSelectionModel().getSelectedItem(); if (run == null) return; if (!controller.cancel(run.id())) showMessage(Alert.AlertType.INFORMATION, "Không có tiến trình đang chạy", "Tiến trình này đã kết thúc."); }
 
@@ -509,12 +599,26 @@ public final class MainView extends BorderPane {
     private static FlowPane wrapChips(String... values) { FlowPane pane = new FlowPane(8, 8); for (String value : values) { Label chip = new Label(value); chip.getStyleClass().add("action-chip"); pane.getChildren().add(chip); } return pane; }
     private static ColumnConstraints cloneColumn(ColumnConstraints source) { ColumnConstraints copy = new ColumnConstraints(); copy.setPercentWidth(source.getPercentWidth()); return copy; }
     private void setValidation(String text, boolean success, boolean error) { validationLabel.setText(text); validationLabel.getStyleClass().removeAll("validation-neutral", "validation-success", "validation-error"); validationLabel.getStyleClass().add(success ? "validation-success" : error ? "validation-error" : "validation-neutral"); }
+    private int excelStartRow() { return parsePositiveInt(excelStartRowField == null ? "1" : excelStartRowField.getText(), "Dòng header"); }
+    private int excelStartColumn() { return parseExcelColumn(excelStartColumnField == null ? "A" : excelStartColumnField.getText()); }
+    private static int parsePositiveInt(String value, String label) { try { int parsed = Integer.parseInt(value == null ? "" : value.trim()); if (parsed < 1) throw new NumberFormatException(); return parsed; } catch (NumberFormatException error) { throw new IllegalArgumentException(label + " phải là số lớn hơn hoặc bằng 1"); } }
+    private static int parseExcelColumn(String value) {
+        String text = value == null ? "" : value.trim();
+        if (text.isBlank()) throw new IllegalArgumentException("Cột bắt đầu không được để trống");
+        if (text.matches("\\d+")) return parsePositiveInt(text, "Cột bắt đầu");
+        int result = 0;
+        for (char ch : text.toUpperCase(Locale.ROOT).toCharArray()) {
+            if (ch < 'A' || ch > 'Z') throw new IllegalArgumentException("Cột bắt đầu phải là số hoặc chữ cột Excel như A, B, AA");
+            result = result * 26 + (ch - 'A' + 1);
+        }
+        return result;
+    }
     private void refreshSelectionLabels() { selectedProjectLabel.setText(selectedProject == null ? "Chưa chọn dự án" : selectedProject.name()); selectedFeatureLabel.setText(selectedFeature == null ? "Chưa chọn chức năng" : selectedFeature.name()); }
     private void selectTreeValue(Object value) { for (TreeItem<Object> projectItem : projectTree.getRoot().getChildren()) { if (sameEntity(projectItem.getValue(), value)) { projectTree.getSelectionModel().select(projectItem); return; } for (TreeItem<Object> featureItem : projectItem.getChildren()) if (sameEntity(featureItem.getValue(), value)) { projectTree.getSelectionModel().select(featureItem); return; } } }
     private static boolean sameEntity(Object left, Object right) { if (left instanceof TestProject && right instanceof TestProject) return ((TestProject) left).id() == ((TestProject) right).id(); if (left instanceof TestFeature && right instanceof TestFeature) return ((TestFeature) left).id() == ((TestFeature) right).id(); return Objects.equals(left, right); }
     private boolean isSelected(TestRun run) { return runTable != null && runTable.getSelectionModel().getSelectedItem() != null && runTable.getSelectionModel().getSelectedItem().id().equals(run.id()); }
     private void showError(Throwable error) { Throwable current = error; while (current.getCause() != null) current = current.getCause(); showMessage(Alert.AlertType.ERROR, "Không thể thực hiện", "Chi tiết lỗi: " + (current.getMessage() == null ? "Lỗi không xác định" : current.getMessage())); }
-    private void showMessage(Alert.AlertType type, String title, String message) { Alert alert = new Alert(type); alert.initOwner(stage); alert.setTitle("TestPilot Studio"); alert.setHeaderText(title); alert.setContentText(message == null ? "Lỗi không xác định" : message); alert.showAndWait(); }
+    private void showMessage(Alert.AlertType type, String title, String message) { Alert alert = new Alert(type); alert.initOwner(stage); alert.setTitle("AUTO TESTING IMD"); alert.setHeaderText(title); alert.setContentText(message == null ? "Lỗi không xác định" : message); alert.showAndWait(); }
 
     private static final class OverviewRow {
         private final String name;

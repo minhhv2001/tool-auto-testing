@@ -37,7 +37,7 @@ public final class ReportServiceImpl implements ReportService {
     @Override
     public Path writeLog(TestRun run, List<StepResult> results, Path outputFile) {
         StringBuilder log = new StringBuilder();
-        log.append("TestPilot Studio - Lần chạy ").append(run.id()).append('\n');
+        log.append("AUTO TESTING IMD - Lần chạy ").append(run.id()).append('\n');
         log.append("Dự án: ").append(run.projectName()).append(" / ").append(run.featureName()).append('\n');
         log.append("Bắt đầu: ").append(run.startedAt().format(TIME)).append("\n\n");
         for (StepResult result : results) {

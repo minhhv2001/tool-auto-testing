@@ -223,15 +223,19 @@
 .filter-bar .label { -fx-text-fill: #65738c; -fx-font-weight: 700; }
 .combo-box { -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #dfe5ef; -fx-background-color: white; }
 .project-overview-dialog > *.button-bar > *.container { -fx-padding: 12 18 16 18; }
-.project-kpi-card { -fx-min-height: 155px; -fx-spacing: 11px; }
+.project-kpi-card {
+    -fx-min-height: 205px;
+    -fx-pref-height: 205px;
+    -fx-spacing: 10px;
+}
 .project-kpi-card .kpi-title { -fx-padding: 5 0 0 0; }
-.project-kpi-card .muted { -fx-padding: 10 0 6 0; -fx-border-color: #edf0f5 transparent transparent transparent; }
+.project-kpi-card .muted { -fx-padding: 8 0 0 0; -fx-border-color: #edf0f5 transparent transparent transparent; }
 .project-overview-table-card { -fx-padding: 20 18 18 18; }
 .tree-table-view { -fx-background-color: transparent; -fx-border-color: transparent; }
 .tree-table-view .column-header-background { -fx-background-color: #f7f9fc; -fx-background-radius: 8 8 0 0; }
 .tree-table-view .column-header { -fx-background-color: transparent; -fx-size: 40; }
 .tree-table-view .column-header .label { -fx-text-fill: #79859b; -fx-font-size: 10px; -fx-font-weight: 800; }
-.tree-table-row-cell { -fx-background-color: white; -fx-border-color: transparent transparent #edf0f5 transparent; -fx-cell-size: 42px; }
+.tree-table-row-cell { -fx-background-color: white; -fx-border-color: transparent transparent #edf0f5 transparent; }
 .tree-table-row-cell:hover { -fx-background-color: #f9fbff; }
 .tree-table-cell { -fx-border-color: transparent; -fx-text-fill: #37465f; }
 .tree-table-row-cell.overview-feature-row { -fx-background-color: #eaf3ff; }
@@ -243,7 +247,20 @@
 .overview-pass { -fx-text-fill: #07804c; -fx-font-weight: 800; }
 .overview-fail { -fx-text-fill: #c72f50; -fx-font-weight: 800; }
 .overview-latest { -fx-font-weight: 700; }
-.overview-center { -fx-alignment: CENTER; }
+.overview-center,
+.tree-table-cell.overview-center,
+.overview-center-column,
+.overview-center-column .label {
+    -fx-alignment: CENTER;
+}
+.overview-text-cell { -fx-padding: 8 10; }
+.overview-more-link {
+    -fx-padding: 0;
+    -fx-border-color: transparent;
+    -fx-text-fill: #2563eb;
+    -fx-font-size: 11px;
+    -fx-font-weight: 700;
+}
 .settings-bullet { -fx-text-fill: #40506b; -fx-padding: 5 0; }
 .action-chip { -fx-background-color: #edf4ff; -fx-background-radius: 18; -fx-text-fill: #255fc2; -fx-font-weight: 700; -fx-padding: 7 11; }
 .check-box { -fx-text-fill: #53627a; }

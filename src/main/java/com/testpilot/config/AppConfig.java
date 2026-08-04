@@ -56,7 +56,7 @@ public final class AppConfig {
     }
 
     public Path defaultTestCaseTemplate() {
-        return resolve(get("template.defaultFile", "sample-data/TestPilot_BanHang_CayChucNang.xlsx"));
+        return resolve(get("template.defaultFile", "sample-data/AUTO_TESTING_IMD_BanHang_CayChucNang.xlsx"));
     }
 
     public Path databaseFile() {
@@ -89,7 +89,7 @@ public final class AppConfig {
         try {
             Files.createDirectories(file.getParent());
             try (java.io.OutputStream output = Files.newOutputStream(file)) {
-                properties.store(output, "Cấu hình TestPilot Studio");
+                properties.store(output, "Cấu hình AUTO TESTING IMD");
             }
         } catch (IOException error) {
             throw new IllegalStateException("Không lưu được tệp cấu hình: " + file, error);

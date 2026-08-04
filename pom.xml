@@ -5,9 +5,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.testpilot</groupId>
-    <artifactId>testpilot-studio</artifactId>
+    <artifactId>auto-testing-imd</artifactId>
     <version>0.1.0</version>
-    <name>TestPilot Studio</name>
+    <name>AUTO TESTING IMD</name>
     <description>Desktop data-driven web automation testing studio</description>
 
     <properties>

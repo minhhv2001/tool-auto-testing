@@ -1,6 +1,6 @@
-# TestPilot Studio
+# AUTO TESTING IMD
 
-TestPilot Studio la ung dung desktop JavaFX de chay UI/E2E test tren website theo du lieu Input/Expected Output trong Excel. Ung dung mo Chromium bang Playwright, thao tac nhu nguoi dung, cap nhat tien do, chup anh, quay video, luu trace va xuat bao cao Excel.
+AUTO TESTING IMD la ung dung desktop JavaFX de chay UI/E2E test tren website theo du lieu Input/Expected Output trong Excel. Ung dung mo Chromium bang Playwright, thao tac nhu nguoi dung, cap nhat tien do, chup anh, quay video, luu trace va xuat bao cao Excel.
 
 ## Cong nghe
 
@@ -25,7 +25,7 @@ TestPilot Studio la ung dung desktop JavaFX de chay UI/E2E test tren website the
 ## Chay trong IntelliJ IDEA
 
 1. Cai JDK 11.
-2. Chon **File → Open** va mo thu muc `TestPilot-Studio`.
+2. Chon **File → Open** va mo thu muc du an hien tai.
 3. Cho IntelliJ import Maven va tai dependency.
 4. Chay mot lan lenh sau trong Maven tool window de cai Chromium:
 
@@ -33,7 +33,7 @@ TestPilot Studio la ung dung desktop JavaFX de chay UI/E2E test tren website the
    exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install chromium"
    ```
 
-5. Chay run configuration **TestPilot Studio**, class `com.testpilot.Launcher`, hoac Maven goal:
+5. Chay run configuration **AUTO TESTING IMD**, class `com.testpilot.Launcher`, hoac Maven goal:
 
    ```bash
    mvn javafx:run
@@ -45,7 +45,7 @@ Sau khi build, Maven se copy cac thu vien runtime vao `target/dependency`.
 
 ```bash
 mvn clean package
-java -cp "target/testpilot-studio-0.1.0.jar;target/dependency/*" com.testpilot.Launcher
+java -cp "target/auto-testing-imd-0.1.0.jar;target/dependency/*" com.testpilot.Launcher
 ```
 
 Tren Windows co the chay nhanh:
@@ -56,7 +56,7 @@ scripts\run-desktop.bat
 
 ## Thu nhanh
 
-1. Mo file `sample-data/TestPilot_Automation_Template.xlsx`.
+1. Mo file `sample-data/AUTO_TESTING_IMD_Automation_Template.xlsx`.
 2. Sua `${BASE_URL}/employees` thanh man hinh danh sach cua ban, hoac tao project co Base URL dung.
 3. Sua cac target `testid=search-input`, `role=button,name=Tim kiem` va `testid=result-table` cho khop website.
 4. Trong ung dung, tao Project → tao Chuc nang → chon file → **Kiem tra file** → **Chay kiem thu**.

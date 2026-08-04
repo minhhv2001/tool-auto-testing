@@ -84,12 +84,22 @@ public final class AppController implements AutoCloseable {
         return excelService.importAutomationSteps(file, sheetName);
     }
 
+    public ImportResult validateExcel(Path file, String sheetName, int startRow, int startColumn) {
+        return excelService.importAutomationSteps(file, sheetName, startRow, startColumn);
+    }
+
     public TestRun startRun(TestProject project, TestFeature feature, Path excelFile,
                             boolean headless, String username, String password) {
+        return startRun(project, feature, excelFile, headless, username, password, 1, 1);
+    }
+
+    public TestRun startRun(TestProject project, TestFeature feature, Path excelFile,
+                            boolean headless, String username, String password,
+                            int startRow, int startColumn) {
         Map<String, String> secrets = new java.util.HashMap<>();
         if (username != null && !username.isBlank()) secrets.put("USERNAME", username);
         if (password != null && !password.isBlank()) secrets.put("PASSWORD", password);
-        RunTestRequest request = new RunTestRequest(project, feature, excelFile, headless, secrets);
+        RunTestRequest request = new RunTestRequest(project, feature, excelFile, headless, secrets, startRow, startColumn);
         TestRun queued = runnerService.start(request, new UiRunListener());
         replaceRun(queued);
         notifyRun(queued);

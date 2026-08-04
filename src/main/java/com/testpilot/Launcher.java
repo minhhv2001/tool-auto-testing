@@ -7,6 +7,6 @@ public final class Launcher {
     }
 
     public static void main(String[] args) {
-        Application.launch(TestPilotApplication.class, args);
+        Application.launch(AutoTestingImdApplication.class, args);
     }
 }
