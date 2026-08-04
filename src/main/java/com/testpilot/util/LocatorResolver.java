@@ -13,7 +13,9 @@ public final class LocatorResolver {
     }
 
     public static Locator resolve(Page page, String target) {
-        if (target == null || target.isBlank()) throw new IllegalArgumentException("Target dang trong");
+        if (target == null || target.isBlank()) {
+            throw new IllegalArgumentException("Thiếu đối tượng thao tác trong Excel. Vui lòng nhập cột \"Đối tượng\" bằng selector như testid=..., text=..., label=..., css=... hoặc xpath=...");
+        }
         String value = target.trim();
         if (value.startsWith("testid=")) return page.getByTestId(value.substring(7));
         if (value.startsWith("text=")) return page.getByText(value.substring(5));

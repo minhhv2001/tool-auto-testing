@@ -20,4 +20,18 @@ class ExcelServiceTest {
         assertEquals(1, result.steps().stream()
                 .filter(step -> step.action() == ActionType.EXPECT_ROWS_CONTAIN).count());
     }
+
+    @Test
+    void importsVietnameseSubFeaturesFromOneFunctionSheet() {
+        ImportResult result = new ExcelServiceImpl().importAutomationSteps(
+                Path.of("sample-data/TestPilot_BanHang_CayChucNang.xlsx"), "Bán hàng");
+        assertEquals(4, result.testCaseCount());
+        assertEquals(11, result.steps().size());
+        assertEquals("Danh sách", result.steps().stream()
+                .filter(step -> step.testCaseId().equals("TC_SALES_LIST_01"))
+                .findFirst().orElseThrow().subFeatureName());
+        assertEquals("Thêm mới", result.steps().stream()
+                .filter(step -> step.testCaseId().equals("TC_SALES_CREATE_01"))
+                .findFirst().orElseThrow().subFeatureName());
+    }
 }

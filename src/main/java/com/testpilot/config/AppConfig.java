@@ -55,6 +55,10 @@ public final class AppConfig {
         return resolve(get("app.outputDir", "outputs"));
     }
 
+    public Path defaultTestCaseTemplate() {
+        return resolve(get("template.defaultFile", "sample-data/TestPilot_BanHang_CayChucNang.xlsx"));
+    }
+
     public Path databaseFile() {
         return dataDirectory().resolve("testpilot.db");
     }

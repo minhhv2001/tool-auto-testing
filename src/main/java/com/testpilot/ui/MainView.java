@@ -21,14 +21,23 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.Dragboard;
+import javafx.scene.input.TransferMode;
 import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 
 import java.awt.Desktop;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -66,6 +75,7 @@ public final class MainView extends BorderPane {
     private PasswordField configPasswordField;
     private CheckBox configHeadlessCheck;
     private TextField configTimeoutField;
+    private TextField configTemplateField;
     private ImageView livePreview;
     private Label detailTitle;
     private Label detailMeta;
@@ -114,7 +124,7 @@ public final class MainView extends BorderPane {
         Region spacer = new Region(); VBox.setVgrow(spacer, Priority.ALWAYS);
         VBox tip = new VBox(8); tip.getStyleClass().add("sidebar-tip");
         Label tipTitle = new Label("✦  GỢI Ý"); tipTitle.getStyleClass().add("tip-title");
-        Label tipText = new Label("Ưu tiên target theo data-testid để testcase bền vững khi giao diện thay đổi.");
+        Label tipText = new Label("Ưu tiên cột Đối tượng theo data-testid để testcase bền vững khi giao diện thay đổi.");
         tipText.setWrapText(true); tipText.getStyleClass().add("tip-text"); tip.getChildren().addAll(tipTitle, tipText);
         sidebar.getChildren().addAll(brand, menu, dashboard, projects, runs, settings, spacer, tip);
         return sidebar;
@@ -161,26 +171,30 @@ public final class MainView extends BorderPane {
         projectTree = new TreeView<>(); projectTree.setShowRoot(false); projectTree.setCellFactory(tree -> new TreeCell<Object>() {
             @Override protected void updateItem(Object item, boolean empty) {
                 super.updateItem(item, empty); getStyleClass().removeAll("project-tree-item", "feature-tree-item");
-                if (empty || item == null) { setText(null); setContextMenu(null); return; }
+                if (empty || item == null) { setText(null); setGraphic(null); setContextMenu(null); return; }
                 if (item instanceof TestProject) {
-                    TestProject project = (TestProject) item; setText("◇  " + project.name()); getStyleClass().add("project-tree-item");
-                    MenuItem detail = new MenuItem("Xem tổng quan dự án"); detail.setOnAction(e -> showProjectOverview(project));
-                    MenuItem delete = new MenuItem("Xóa dự án và tệp đi kèm"); delete.setOnAction(e -> deleteProject(project));
-                    setContextMenu(new ContextMenu(detail, delete));
-                } else if (item instanceof TestFeature) { setText("  └  " + ((TestFeature) item).name()); getStyleClass().add("feature-tree-item"); }
+                    TestProject project = (TestProject) item; getStyleClass().add("project-tree-item");
+                    Label name = new Label("◇  " + project.name()); name.getStyleClass().add("tree-project-name"); HBox.setHgrow(name, Priority.ALWAYS);
+                    Button detail = treeRowButton("▤"); detail.setTooltip(new Tooltip("Xem tổng quan dự án")); detail.setOnAction(e -> showProjectOverview(project));
+                    Button delete = treeRowButton("×"); delete.getStyleClass().add("tree-delete-button"); delete.setTooltip(new Tooltip("Xóa dự án và toàn bộ tệp đi kèm")); delete.setOnAction(e -> deleteProject(project));
+                    HBox row = new HBox(8, name, detail, delete); row.setAlignment(Pos.CENTER_LEFT); row.setMaxWidth(Double.MAX_VALUE);
+                    row.prefWidthProperty().bind(widthProperty().subtract(18)); setText(null); setGraphic(row); setContextMenu(null);
+                } else if (item instanceof TestFeature) { setText("  └  " + ((TestFeature) item).name()); setGraphic(null); getStyleClass().add("feature-tree-item"); }
             }
         }); VBox.setVgrow(projectTree, Priority.ALWAYS);
-        HBox treeActions = new HBox(8); Button overview = secondaryButton("Tổng quan dự án"); overview.setOnAction(e -> { if (selectedProject != null) showProjectOverview(selectedProject); });
-        Button delete = dangerButton("Xóa dự án"); delete.setOnAction(e -> { if (selectedProject != null) deleteProject(selectedProject); }); treeActions.getChildren().addAll(overview, delete);
-        treeCard.getChildren().addAll(treeHeader, projectTree, treeActions);
+        treeCard.getChildren().addAll(treeHeader, projectTree);
 
         VBox runCard = card(); HBox runHeader = sectionHeader("Tạo tiến trình kiểm thử", "Chọn chức năng, tệp Excel, tài khoản và chế độ chạy");
         selectedProjectLabel = valueLabel("Chưa chọn dự án"); selectedFeatureLabel = valueLabel("Chưa chọn chức năng"); GridPane selection = formGrid();
         selection.add(fieldLabel("Dự án"), 0, 0); selection.add(selectedProjectLabel, 1, 0); selection.add(fieldLabel("Chức năng"), 0, 1); selection.add(selectedFeatureLabel, 1, 1);
         VBox fileDrop = new VBox(8); fileDrop.getStyleClass().add("file-drop"); fileDrop.setAlignment(Pos.CENTER);
-        Label fileIcon = new Label("⇧"); fileIcon.getStyleClass().add("file-icon"); Label fileTitle = new Label("Chọn tệp testcase Excel"); fileTitle.getStyleClass().add("file-title");
-        excelFileLabel = new Label(".xlsx · có thể dùng nhiều sheet chức năng"); excelFileLabel.getStyleClass().add("muted"); Button browse = secondaryButton("Duyệt tệp"); browse.setOnAction(e -> chooseExcelFile());
-        fileDrop.getChildren().addAll(fileIcon, fileTitle, excelFileLabel, browse);
+        Label fileIcon = new Label("⇧"); fileIcon.getStyleClass().add("file-icon"); Label fileTitle = new Label("Kéo thả tệp testcase Excel vào đây"); fileTitle.getStyleClass().add("file-title");
+        excelFileLabel = new Label(".xlsx · hoặc dùng các nút bên dưới"); excelFileLabel.getStyleClass().add("muted"); Button browse = secondaryButton("Chọn tệp Excel"); browse.setOnAction(e -> chooseExcelFile());
+        Button template = secondaryButton("Tải mẫu testcase"); template.setOnAction(e -> downloadTestCaseTemplate());
+        HBox fileActions = new HBox(9, browse, template); fileActions.setAlignment(Pos.CENTER);
+        fileDrop.getChildren().addAll(fileIcon, fileTitle, excelFileLabel, fileActions);
+        fileDrop.setOnDragOver(event -> { Dragboard board = event.getDragboard(); if (board.hasFiles() && board.getFiles().stream().anyMatch(file -> isExcelFile(file.toPath()))) event.acceptTransferModes(TransferMode.COPY); event.consume(); });
+        fileDrop.setOnDragDropped(event -> { boolean completed = false; for (java.io.File file : event.getDragboard().getFiles()) { if (isExcelFile(file.toPath())) { selectExcelFile(file.toPath()); completed = true; break; } } event.setDropCompleted(completed); event.consume(); });
         validationLabel = new Label("Chưa kiểm tra tệp"); validationLabel.getStyleClass().addAll("validation-message", "validation-neutral"); Button validate = secondaryButton("✓  Kiểm tra tệp"); validate.setOnAction(e -> validateExcel());
         usernameField = new TextField(); usernameField.setPromptText("${USERNAME} hoặc tài khoản kiểm thử"); passwordField = new PasswordField(); passwordField.setPromptText("${PASSWORD} hoặc mật khẩu kiểm thử");
         headlessCheck = new CheckBox("Chạy ẩn trình duyệt (không mở cửa sổ Chrome)"); headlessCheck.setSelected(false);
@@ -219,10 +233,10 @@ public final class MainView extends BorderPane {
         VBox content = page("settings"); content.getChildren().add(pageHeading("Cấu hình", "Các giá trị có thể chỉnh sửa và lưu vào config/application.properties."));
         VBox editor = card(); editor.getChildren().add(sectionHeader("Thiết lập runner", "Chỉ mật khẩu không được ghi vào file cấu hình")); GridPane form = formGrid();
         configUrlField = new TextField(controller.config().get("env.BASE_URL", "")); configUsernameField = new TextField(controller.config().get("env.USERNAME", "")); configPasswordField = new PasswordField(); configPasswordField.setPromptText("Không ghi vào file cấu hình");
-        configHeadlessCheck = new CheckBox("Chạy ẩn trình duyệt theo mặc định"); configHeadlessCheck.setSelected(controller.config().getBoolean("runner.headless", false)); configTimeoutField = new TextField(Integer.toString(controller.config().getInt("runner.defaultTimeoutMs", 15000)));
-        form.add(fieldLabel("URL mặc định"), 0, 0); form.add(configUrlField, 1, 0); form.add(fieldLabel("Tài khoản mặc định"), 0, 1); form.add(configUsernameField, 1, 1); form.add(fieldLabel("Mật khẩu phiên này"), 0, 2); form.add(configPasswordField, 1, 2); form.add(fieldLabel("Thời gian chờ (ms)"), 0, 3); form.add(configTimeoutField, 1, 3); form.add(new Label(""), 0, 4); form.add(configHeadlessCheck, 1, 4);
+        configHeadlessCheck = new CheckBox("Chạy ẩn trình duyệt theo mặc định"); configHeadlessCheck.setSelected(controller.config().getBoolean("runner.headless", false)); configTimeoutField = new TextField(Integer.toString(controller.config().getInt("runner.defaultTimeoutMs", 15000))); configTemplateField = new TextField(controller.config().get("template.defaultFile", "sample-data/TestPilot_BanHang_CayChucNang.xlsx")); configTemplateField.setPromptText("sample-data/Mau_testcase.xlsx");
+        form.add(fieldLabel("URL mặc định"), 0, 0); form.add(configUrlField, 1, 0); form.add(fieldLabel("Tài khoản mặc định"), 0, 1); form.add(configUsernameField, 1, 1); form.add(fieldLabel("Mật khẩu phiên này"), 0, 2); form.add(configPasswordField, 1, 2); form.add(fieldLabel("Thời gian chờ (ms)"), 0, 3); form.add(configTimeoutField, 1, 3); form.add(fieldLabel("Tệp mẫu testcase"), 0, 4); form.add(configTemplateField, 1, 4); form.add(new Label(""), 0, 5); form.add(configHeadlessCheck, 1, 5);
         Button save = primaryButton("Lưu cấu hình"); save.setOnAction(e -> saveSettings()); editor.getChildren().addAll(form, save);
-        VBox guide = card(); guide.getChildren().addAll(sectionHeader("Cách dùng", "Các khóa thao tác trong Excel vẫn giữ tiếng Anh để runner nhận diện."), bullet("URL, tài khoản và thời gian chờ có thể sửa trực tiếp rồi bấm Lưu cấu hình."), bullet("Mật khẩu chỉ dùng trong phiên chạy, không ghi vào application.properties."), bullet("Trace là gói chẩn đoán để xem lại DOM, ảnh và từng bước khi lỗi."), bullet("Mỗi dự án có thư mục riêng chứa file Excel và kết quả; xóa dự án sẽ xóa cả thư mục đó."));
+        VBox guide = card(); guide.getChildren().addAll(sectionHeader("Cách dùng", "Các khóa thao tác trong Excel vẫn giữ tiếng Anh để runner nhận diện."), bullet("URL, tài khoản, thời gian chờ và đường dẫn tệp mẫu có thể sửa trực tiếp rồi bấm Lưu cấu hình."), bullet("Tệp mẫu nên để đường dẫn tương đối như sample-data/Mau_testcase.xlsx để dễ thay thế, cập nhật và mang sang máy khác."), bullet("Mật khẩu chỉ dùng trong phiên chạy, không ghi vào application.properties."), bullet("Trace là gói chẩn đoán để xem lại DOM, ảnh và từng bước khi lỗi."), bullet("Mỗi dự án có thư mục riêng chứa file Excel và kết quả; xóa dự án sẽ xóa cả thư mục đó."));
         VBox actions = card(); actions.getChildren().addAll(sectionHeader("Khóa thao tác trong Excel", "Chỉ các giá trị kỹ thuật này dùng tiếng Anh"), wrapChips("goto", "click", "fill", "press", "select", "check", "uncheck", "upload", "wait", "expectText", "expectVisible", "expectHidden", "expectUrl", "expectRowsContain", "screenshot")); content.getChildren().addAll(editor, guide, actions); return scroll(content);
     }
 
@@ -296,14 +310,165 @@ public final class MainView extends BorderPane {
     }
 
     private void showProjectOverview(TestProject project) {
-        if (project == null) return; Dialog<ButtonType> dialog = formDialog("Tổng quan dự án: " + project.name(), project.baseUrl().isBlank() ? "" : project.baseUrl()); dialog.getDialogPane().getButtonTypes().setAll(ButtonType.CLOSE);
-        List<TestRun> runs = controller.runs().stream().filter(run -> run.projectId() == project.id()).collect(Collectors.toList()); long passed = runs.stream().filter(run -> run.status() == RunStatus.PASSED).count(); long failed = runs.stream().filter(run -> run.status() == RunStatus.FAILED).count(); long running = runs.stream().filter(run -> run.status() == RunStatus.RUNNING || run.status() == RunStatus.QUEUED).count();
-        GridPane kpis = new GridPane(); kpis.setHgap(10); kpis.add(new KpiCard("✓", "Đạt", "accent-green"), 0, 0); kpis.add(new KpiCard("!", "Không đạt", "accent-red"), 1, 0); kpis.add(new KpiCard("▶", "Đang chạy", "accent-indigo"), 2, 0); ((KpiCard) kpis.getChildren().get(0)).setValue(Long.toString(passed)); ((KpiCard) kpis.getChildren().get(1)).setValue(Long.toString(failed)); ((KpiCard) kpis.getChildren().get(2)).setValue(Long.toString(running));
-        TableView<TestFeature> table = new TableView<>(); table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY); table.setItems(FXCollections.observableArrayList(controller.features(project.id()))); TableColumn<TestFeature, String> feature = new TableColumn<>("Chức năng"); feature.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().name())); TableColumn<TestFeature, Number> total = new TableColumn<>("Tổng lần chạy"); total.setCellValueFactory(data -> new ReadOnlyIntegerWrapper((int) runs.stream().filter(run -> run.featureId() == data.getValue().id()).count())); TableColumn<TestFeature, Number> ok = new TableColumn<>("Đạt"); ok.setCellValueFactory(data -> new ReadOnlyIntegerWrapper((int) runs.stream().filter(run -> run.featureId() == data.getValue().id() && run.status() == RunStatus.PASSED).count())); TableColumn<TestFeature, Number> bad = new TableColumn<>("Không đạt"); bad.setCellValueFactory(data -> new ReadOnlyIntegerWrapper((int) runs.stream().filter(run -> run.featureId() == data.getValue().id() && run.status() == RunStatus.FAILED).count())); table.getColumns().addAll(feature, total, ok, bad); table.setPrefHeight(300);
-        VBox box = new VBox(14, kpis, sectionHeader("Thống kê theo chức năng", "Mỗi dòng là một chức năng trong dự án"), table); dialog.getDialogPane().setContent(box); dialog.getDialogPane().setPrefWidth(780); dialog.showAndWait();
+        if (project == null) return;
+        List<TestRun> projectRuns = controller.runs().stream()
+                .filter(run -> run.projectId() == project.id()).collect(Collectors.toList());
+        TreeItem<OverviewRow> root = buildProjectOverviewTree(project, projectRuns);
+        int testCases = root.getChildren().stream().mapToInt(item -> item.getValue().testCaseCount()).sum();
+        int passed = root.getChildren().stream().mapToInt(item -> item.getValue().passed()).sum();
+        int failed = root.getChildren().stream().mapToInt(item -> item.getValue().failed()).sum();
+        long running = projectRuns.stream().filter(run -> run.status() == RunStatus.RUNNING || run.status() == RunStatus.QUEUED).count();
+
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.initOwner(stage); dialog.setTitle("Tổng quan dự án"); dialog.setHeaderText(project.name());
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        dialog.getDialogPane().getStyleClass().add("project-overview-dialog");
+
+        GridPane kpis = new GridPane(); kpis.setHgap(16); kpis.setVgap(10);
+        for (int i = 0; i < 4; i++) { ColumnConstraints column = new ColumnConstraints(); column.setPercentWidth(25); kpis.getColumnConstraints().add(column); }
+        KpiCard totalCard = projectKpiCard("◆", "Testcase", "accent-blue", Integer.toString(testCases), "trong toàn dự án");
+        KpiCard runningCard = projectKpiCard("▶", "Đang chạy", "accent-indigo", Long.toString(running), "tiến trình đang thực thi");
+        KpiCard passCard = projectKpiCard("✓", "Đạt", "accent-green", Integer.toString(passed), "lần thực thi testcase");
+        KpiCard failCard = projectKpiCard("✕", "Không đạt", "accent-red", Integer.toString(failed), "cần kiểm tra lại");
+        kpis.add(totalCard, 0, 0); kpis.add(runningCard, 1, 0); kpis.add(passCard, 2, 0); kpis.add(failCard, 3, 0);
+
+        TreeTableView<OverviewRow> table = createProjectOverviewTable(root);
+        VBox tableCard = card(); tableCard.getStyleClass().add("project-overview-table-card");
+        tableCard.getChildren().addAll(sectionHeader("Cấu trúc kiểm thử", "Mở rộng từng dòng để xem nhóm chức năng, chức năng con và testcase"), table);
+        VBox.setVgrow(table, Priority.ALWAYS);
+        VBox content = new VBox(24, kpis, tableCard); content.setPadding(new Insets(4));
+        VBox.setMargin(tableCard, new Insets(4, 0, 0, 0));
+        dialog.getDialogPane().setContent(content); dialog.getDialogPane().setPrefWidth(1420); dialog.getDialogPane().setPrefHeight(720);
+        dialog.showAndWait();
     }
 
-    private void chooseExcelFile() { FileChooser chooser = new FileChooser(); chooser.setTitle("Chọn tệp testcase Excel"); chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Tệp Excel", "*.xlsx")); java.io.File file = chooser.showOpenDialog(stage); if (file == null) return; selectedExcelFile = file.toPath(); excelFileLabel.setText(file.getName()); setValidation("Chưa kiểm tra tệp mới", false, false); }
+    private KpiCard projectKpiCard(String icon, String title, String accent, String value, String caption) {
+        KpiCard card = new KpiCard(icon, title, accent); card.setValue(value); card.setCaption(caption); card.getStyleClass().add("project-kpi-card"); return card;
+    }
+
+    private TreeTableView<OverviewRow> createProjectOverviewTable(TreeItem<OverviewRow> root) {
+        TreeTableView<OverviewRow> table = new TreeTableView<>(root); table.setShowRoot(false); table.setColumnResizePolicy(TreeTableView.CONSTRAINED_RESIZE_POLICY); table.setPrefHeight(420);
+        TreeTableColumn<OverviewRow, String> item = new TreeTableColumn<>("HẠNG MỤC");
+        item.setPrefWidth(285); item.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().getValue().name()));
+        TreeTableColumn<OverviewRow, String> description = new TreeTableColumn<>("MÔ TẢ");
+        description.setPrefWidth(205); description.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().getValue().description()));
+        TreeTableColumn<OverviewRow, String> input = new TreeTableColumn<>("DỮ LIỆU VÀO");
+        input.setPrefWidth(165); input.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().getValue().input()));
+        TreeTableColumn<OverviewRow, String> expected = new TreeTableColumn<>("KẾT QUẢ MONG ĐỢI");
+        expected.setPrefWidth(205); expected.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().getValue().expected()));
+        TreeTableColumn<OverviewRow, String> testCases = new TreeTableColumn<>("TESTCASE");
+        testCases.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().getValue().testCaseCount() == 0 ? "—" : Integer.toString(data.getValue().getValue().testCaseCount())));
+        testCases.setCellFactory(column -> overviewCenteredCell(""));
+        TreeTableColumn<OverviewRow, String> passed = new TreeTableColumn<>("✓ ĐẠT");
+        passed.setCellValueFactory(data -> new ReadOnlyStringWrapper(displayCount(data.getValue().getValue().passed(), "✓")));
+        passed.setCellFactory(column -> overviewCenteredCell("overview-pass"));
+        TreeTableColumn<OverviewRow, String> failed = new TreeTableColumn<>("✕ KHÔNG ĐẠT");
+        failed.setCellValueFactory(data -> new ReadOnlyStringWrapper(displayCount(data.getValue().getValue().failed(), "✕")));
+        failed.setCellFactory(column -> overviewCenteredCell("overview-fail"));
+        TreeTableColumn<OverviewRow, String> latest = new TreeTableColumn<>("TỔNG HỢP");
+        latest.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().getValue().latestResult()));
+        latest.setCellFactory(column -> overviewCenteredCell("overview-latest"));
+        table.getColumns().addAll(item, description, input, expected, testCases, passed, failed, latest);
+        table.setRowFactory(view -> new TreeTableRow<OverviewRow>() {
+            @Override protected void updateItem(OverviewRow value, boolean empty) {
+                super.updateItem(value, empty);
+                getStyleClass().removeAll("overview-feature-row", "overview-subfeature-row", "overview-testcase-row");
+                if (empty || getTreeItem() == null) return;
+                int depth = 0; TreeItem<OverviewRow> item = getTreeItem();
+                while (item.getParent() != null) { depth++; item = item.getParent(); }
+                getStyleClass().add(depth == 1 ? "overview-feature-row" : depth == 2 ? "overview-subfeature-row" : "overview-testcase-row");
+            }
+        });
+        return table;
+    }
+
+    private static TreeTableCell<OverviewRow, String> overviewCenteredCell(String styleClass) {
+        return new TreeTableCell<OverviewRow, String>() {
+            @Override protected void updateItem(String value, boolean empty) {
+                super.updateItem(value, empty);
+                setText(empty ? null : value);
+                setAlignment(Pos.CENTER);
+                getStyleClass().removeAll("overview-pass", "overview-fail", "overview-latest", "overview-center");
+                if (!empty) {
+                    getStyleClass().add("overview-center");
+                    if (!styleClass.isBlank()) getStyleClass().add(styleClass);
+                }
+            }
+        };
+    }
+
+    private static String displayCount(int value, String icon) { return value == 0 ? "—" : icon + " " + value; }
+
+    private TreeItem<OverviewRow> buildProjectOverviewTree(TestProject project, List<TestRun> runs) {
+        Map<Long, FeatureSummary> summaries = new LinkedHashMap<>();
+        for (TestFeature feature : controller.features(project.id())) summaries.put(feature.id(), new FeatureSummary(feature));
+        for (TestRun run : runs) {
+            FeatureSummary summary = summaries.get(run.featureId()); if (summary == null) continue;
+            List<CaseOutcome> outcomes = readCaseOutcomes(run);
+            if (outcomes.isEmpty()) outcomes = List.of(CaseOutcome.fromRun(run));
+            outcomes.forEach(summary::add);
+        }
+        TreeItem<OverviewRow> root = new TreeItem<>(new OverviewRow("Dự án", "", "", "", 0, 0, 0, "")); root.setExpanded(true);
+        summaries.values().forEach(summary -> root.getChildren().add(summary.toTreeItem())); return root;
+    }
+
+    private List<CaseOutcome> readCaseOutcomes(TestRun run) {
+        Path report = run.artifactDirectory().resolve("test-results.xlsx"); if (!Files.isRegularFile(report)) return Collections.emptyList();
+        try (InputStream input = Files.newInputStream(report); Workbook workbook = WorkbookFactory.create(input)) {
+            Sheet sheet = workbook.getSheet(run.featureName());
+            if (sheet == null) sheet = workbook.getSheet("Kết quả kiểm thử");
+            if (sheet == null && workbook.getNumberOfSheets() > 1) sheet = workbook.getSheetAt(1);
+            if (sheet == null) return Collections.emptyList();
+            Row header = sheet.getRow(0); if (header == null) return Collections.emptyList();
+            Map<String, Integer> columns = overviewHeaderMap(header); DataFormatter formatter = new DataFormatter();
+            Map<String, CaseOutcome> outcomes = new LinkedHashMap<>();
+            for (int index = 1; index <= sheet.getLastRowNum(); index++) {
+                Row row = sheet.getRow(index); if (row == null) continue;
+                String testCase = overviewCell(row, columns, "testcase", formatter); if (testCase.isBlank()) continue;
+                String subFeature = overviewCell(row, columns, "subfeature", formatter); if (subFeature.isBlank()) subFeature = "Chưa phân loại"; final String sectionName = subFeature;
+                String status = overviewCell(row, columns, "status", formatter); boolean passed = normalizeOverview(status).equals("dat") || normalizeOverview(status).equals("pass");
+                String description = overviewCell(row, columns, "description", formatter); String inputValue = overviewCell(row, columns, "input", formatter); String expected = overviewCell(row, columns, "expected", formatter);
+                String key = sectionName + "\u0000" + testCase; CaseOutcome outcome = outcomes.computeIfAbsent(key, ignored -> new CaseOutcome(sectionName, testCase, true)); outcome.record(passed, description, inputValue, expected);
+            }
+            return new ArrayList<>(outcomes.values());
+        } catch (Exception ignored) { return Collections.emptyList(); }
+    }
+
+    private static Map<String, Integer> overviewHeaderMap(Row row) {
+        Map<String, Integer> result = new HashMap<>(); DataFormatter formatter = new DataFormatter();
+        for (org.apache.poi.ss.usermodel.Cell cell : row) {
+            String value = normalizeOverview(formatter.formatCellValue(cell));
+            if (Set.of("chucnangcon", "chucnangchitiet", "subfeature").contains(value)) result.put("subfeature", cell.getColumnIndex());
+            else if (Set.of("matestcase", "testcaseid", "testcase").contains(value)) result.put("testcase", cell.getColumnIndex());
+            else if (Set.of("mota", "description").contains(value)) result.put("description", cell.getColumnIndex());
+            else if (Set.of("dulieuvao", "input").contains(value)) result.put("input", cell.getColumnIndex());
+            else if (Set.of("ketquamongdoi", "expected", "output").contains(value)) result.put("expected", cell.getColumnIndex());
+            else if (Set.of("trangthai", "status", "ketqua", "result").contains(value)) result.put("status", cell.getColumnIndex());
+        }
+        return result;
+    }
+
+    private static String overviewCell(Row row, Map<String, Integer> columns, String name, DataFormatter formatter) {
+        Integer index = columns.get(name); if (index == null || row.getCell(index) == null) return ""; return formatter.formatCellValue(row.getCell(index)).trim();
+    }
+
+    private static String normalizeOverview(String value) {
+        return java.text.Normalizer.normalize(value == null ? "" : value, java.text.Normalizer.Form.NFD).replaceAll("\\p{M}", "").toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+    }
+
+    private void chooseExcelFile() { FileChooser chooser = new FileChooser(); chooser.setTitle("Chọn tệp testcase Excel"); chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Tệp Excel", "*.xlsx")); java.io.File file = chooser.showOpenDialog(stage); if (file != null) selectExcelFile(file.toPath()); }
+
+    private void selectExcelFile(Path file) { selectedExcelFile = file; excelFileLabel.setText(file.getFileName().toString()); setValidation("Chưa kiểm tra tệp mới", false, false); }
+    private static boolean isExcelFile(Path file) { return file != null && Files.isRegularFile(file) && file.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".xlsx"); }
+
+    private void downloadTestCaseTemplate() {
+        Path template = controller.config().defaultTestCaseTemplate();
+        if (!Files.isRegularFile(template)) { showMessage(Alert.AlertType.WARNING, "Không tìm thấy mẫu testcase", "Kiểm tra khóa template.defaultFile trong config/application.properties."); return; }
+        FileChooser chooser = new FileChooser(); chooser.setTitle("Lưu mẫu testcase"); chooser.setInitialFileName(template.getFileName().toString()); chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Tệp Excel", "*.xlsx"));
+        java.io.File target = chooser.showSaveDialog(stage); if (target == null) return;
+        try { Files.copy(template, target.toPath(), StandardCopyOption.REPLACE_EXISTING); showMessage(Alert.AlertType.INFORMATION, "Đã tải mẫu testcase", "Mẫu Excel đã được lưu tại:\n" + target.getAbsolutePath()); }
+        catch (IOException error) { showMessage(Alert.AlertType.ERROR, "Không lưu được mẫu testcase", "Hãy kiểm tra quyền ghi tệp rồi thử lại."); }
+    }
 
     private void validateExcel() { if (selectedExcelFile == null) { showMessage(Alert.AlertType.WARNING, "Chưa có tệp", "Hãy chọn tệp Excel trước."); return; } try { ImportResult result = controller.validateExcel(selectedExcelFile, selectedFeature == null ? null : selectedFeature.name()); setValidation("Hợp lệ · " + result.testCaseCount() + " testcase · " + result.steps().size() + " bước", true, false); } catch (RuntimeException error) { setValidation("Không hợp lệ · " + error.getMessage(), false, true); } }
 
@@ -314,7 +479,7 @@ public final class MainView extends BorderPane {
     private void showRunDetail(TestRun run) { if (run == null || detailTitle == null) return; detailTitle.setText(run.projectName() + "  /  " + run.featureName()); detailMeta.setText(DATE_TIME.format(run.startedAt()) + "  ·  " + Path.of(run.sourceFile()).getFileName() + "  ·  " + statusText(run.status())); detailProgress.setProgress(run.progress() / 100.0); detailPercent.setText(run.progress() + "%"); detailStep.setText(run.currentStep() == null || run.currentStep().isBlank() ? "Chưa có bước nào" : run.currentStep()); detailError.setText(run.errorMessage() == null ? "" : run.errorMessage()); stopButton.setDisable(run.status() != RunStatus.RUNNING && run.status() != RunStatus.QUEUED); reportButton.setDisable(!Files.exists(run.artifactDirectory().resolve("test-results.xlsx"))); videoButton.setDisable(!Files.exists(run.artifactDirectory().resolve("run-video.webm"))); traceButton.setDisable(!Files.exists(run.artifactDirectory().resolve("trace.zip"))); folderButton.setDisable(!Files.exists(run.artifactDirectory())); Path preview = previews.get(run.id()); if (preview == null) preview = latestScreenshot(run.artifactDirectory().resolve("screenshots")); if (preview != null) setPreview(preview); else livePreview.setImage(null); }
 
     private static String statusText(RunStatus status) { switch (status) { case QUEUED: return "Đang chờ"; case RUNNING: return "Đang chạy"; case PASSED: return "Đạt"; case FAILED: return "Không đạt"; case CANCELLED: return "Đã dừng"; default: return status.name(); } }
-    private void saveSettings() { try { int timeout = Integer.parseInt(configTimeoutField.getText().trim()); if (timeout < 100) throw new NumberFormatException(); controller.config().set("env.BASE_URL", configUrlField.getText().trim()); controller.config().set("env.USERNAME", configUsernameField.getText().trim()); controller.config().set("runner.headless", Boolean.toString(configHeadlessCheck.isSelected())); controller.config().set("runner.defaultTimeoutMs", Integer.toString(timeout)); controller.config().save(); usernameField.setText(configUsernameField.getText()); passwordField.setText(configPasswordField.getText()); configPasswordField.clear(); headlessCheck.setSelected(configHeadlessCheck.isSelected()); showMessage(Alert.AlertType.INFORMATION, "Đã lưu cấu hình", "Cấu hình sẽ được áp dụng cho các lần chạy tiếp theo. Mật khẩu chỉ được áp dụng cho phiên này."); } catch (NumberFormatException error) { showMessage(Alert.AlertType.ERROR, "Thời gian chờ không hợp lệ", "Hãy nhập số mili-giây lớn hơn hoặc bằng 100."); } catch (RuntimeException error) { showError(error); } }
+    private void saveSettings() { try { int timeout = Integer.parseInt(configTimeoutField.getText().trim()); if (timeout < 100) throw new NumberFormatException(); if (configTemplateField.getText().trim().isBlank()) throw new IllegalArgumentException("Hãy nhập đường dẫn tệp mẫu testcase"); controller.config().set("env.BASE_URL", configUrlField.getText().trim()); controller.config().set("env.USERNAME", configUsernameField.getText().trim()); controller.config().set("template.defaultFile", configTemplateField.getText().trim()); controller.config().set("runner.headless", Boolean.toString(configHeadlessCheck.isSelected())); controller.config().set("runner.defaultTimeoutMs", Integer.toString(timeout)); controller.config().save(); usernameField.setText(configUsernameField.getText()); passwordField.setText(configPasswordField.getText()); configPasswordField.clear(); headlessCheck.setSelected(configHeadlessCheck.isSelected()); showMessage(Alert.AlertType.INFORMATION, "Đã lưu cấu hình", "Cấu hình sẽ được áp dụng cho các lần chạy tiếp theo. Mật khẩu chỉ được áp dụng cho phiên này."); } catch (NumberFormatException error) { showMessage(Alert.AlertType.ERROR, "Thời gian chờ không hợp lệ", "Hãy nhập số mili-giây lớn hơn hoặc bằng 100."); } catch (RuntimeException error) { showError(error); } }
 
     private void openArtifact(String filename) { TestRun run = runTable.getSelectionModel().getSelectedItem(); if (run == null) return; Path path = filename.isBlank() ? run.artifactDirectory().getParent().getParent() : run.artifactDirectory().resolve(filename); if (!Files.exists(path)) { showMessage(Alert.AlertType.WARNING, "Chưa có tệp", "Tệp này chỉ có sau khi tiến trình hoàn tất."); return; } try { Desktop.getDesktop().open(path.toFile()); } catch (IOException | UnsupportedOperationException error) { showMessage(Alert.AlertType.ERROR, "Không mở được tệp", path.toAbsolutePath().toString()); } }
 
@@ -334,6 +499,7 @@ public final class MainView extends BorderPane {
     private static Button secondaryButton(String text) { Button button = new Button(text); button.getStyleClass().add("secondary-button"); return button; }
     private static Button dangerButton(String text) { Button button = new Button(text); button.getStyleClass().add("danger-button"); return button; }
     private static Button iconButton(String text) { Button button = new Button(text); button.getStyleClass().add("icon-button"); return button; }
+    private static Button treeRowButton(String text) { Button button = new Button(text); button.getStyleClass().add("tree-row-button"); button.setFocusTraversable(false); return button; }
     private static Label fieldLabel(String text) { Label label = new Label(text); label.getStyleClass().add("field-label"); return label; }
     private static Label valueLabel(String text) { Label label = new Label(text); label.getStyleClass().add("value-label"); return label; }
     private static GridPane formGrid() { GridPane grid = new GridPane(); grid.setHgap(16); grid.setVgap(13); ColumnConstraints labels = new ColumnConstraints(150); ColumnConstraints inputs = new ColumnConstraints(); inputs.setHgrow(Priority.ALWAYS); inputs.setFillWidth(true); grid.getColumnConstraints().addAll(labels, inputs); return grid; }
@@ -347,6 +513,103 @@ public final class MainView extends BorderPane {
     private void selectTreeValue(Object value) { for (TreeItem<Object> projectItem : projectTree.getRoot().getChildren()) { if (sameEntity(projectItem.getValue(), value)) { projectTree.getSelectionModel().select(projectItem); return; } for (TreeItem<Object> featureItem : projectItem.getChildren()) if (sameEntity(featureItem.getValue(), value)) { projectTree.getSelectionModel().select(featureItem); return; } } }
     private static boolean sameEntity(Object left, Object right) { if (left instanceof TestProject && right instanceof TestProject) return ((TestProject) left).id() == ((TestProject) right).id(); if (left instanceof TestFeature && right instanceof TestFeature) return ((TestFeature) left).id() == ((TestFeature) right).id(); return Objects.equals(left, right); }
     private boolean isSelected(TestRun run) { return runTable != null && runTable.getSelectionModel().getSelectedItem() != null && runTable.getSelectionModel().getSelectedItem().id().equals(run.id()); }
-    private void showError(Throwable error) { Throwable current = error; while (current.getCause() != null) current = current.getCause(); showMessage(Alert.AlertType.ERROR, "Không thể thực hiện", current.getMessage()); }
+    private void showError(Throwable error) { Throwable current = error; while (current.getCause() != null) current = current.getCause(); showMessage(Alert.AlertType.ERROR, "Không thể thực hiện", "Chi tiết lỗi: " + (current.getMessage() == null ? "Lỗi không xác định" : current.getMessage())); }
     private void showMessage(Alert.AlertType type, String title, String message) { Alert alert = new Alert(type); alert.initOwner(stage); alert.setTitle("TestPilot Studio"); alert.setHeaderText(title); alert.setContentText(message == null ? "Lỗi không xác định" : message); alert.showAndWait(); }
+
+    private static final class OverviewRow {
+        private final String name;
+        private final String description;
+        private final String input;
+        private final String expected;
+        private final int testCaseCount;
+        private final int passed;
+        private final int failed;
+        private final String latestResult;
+
+        private OverviewRow(String name, String description, String input, String expected, int testCaseCount, int passed, int failed, String latestResult) {
+            this.name = name;
+            this.description = description;
+            this.input = input;
+            this.expected = expected;
+            this.testCaseCount = testCaseCount;
+            this.passed = passed;
+            this.failed = failed;
+            this.latestResult = latestResult;
+        }
+
+        String name() { return name; }
+        String description() { return description; }
+        String input() { return input; }
+        String expected() { return expected; }
+        int testCaseCount() { return testCaseCount; }
+        int passed() { return passed; }
+        int failed() { return failed; }
+        String latestResult() { return latestResult; }
+    }
+
+    private static final class CaseOutcome {
+        private final String subFeature;
+        private final String testCase;
+        private String description = "";
+        private String input = "";
+        private String expected = "";
+        private int passed;
+        private int failed;
+
+        private CaseOutcome(String subFeature, String testCase, boolean pending) {
+            this.subFeature = subFeature;
+            this.testCase = testCase;
+        }
+
+        static CaseOutcome fromRun(TestRun run) {
+            CaseOutcome result = new CaseOutcome("Chưa có chi tiết", "Lần chạy " + run.id(), false);
+            if (run.status() == RunStatus.PASSED) result.passed = 1;
+            else if (run.status() == RunStatus.FAILED || run.status() == RunStatus.CANCELLED) result.failed = 1;
+            return result;
+        }
+
+        void record(boolean isPassed, String description, String input, String expected) {
+            if (this.description.isBlank() && description != null) this.description = description;
+            if (this.input.isBlank() && input != null) this.input = input;
+            if (this.expected.isBlank() && expected != null) this.expected = expected;
+            if (failed > 0) return;
+            if (isPassed) passed = 1;
+            else { passed = 0; failed = 1; }
+        }
+        boolean latestPassed() { return failed == 0 && passed > 0; }
+    }
+
+    private static final class FeatureSummary {
+        private final TestFeature feature;
+        private final Map<String, Map<String, CaseOutcome>> sections = new LinkedHashMap<>();
+
+        private FeatureSummary(TestFeature feature) { this.feature = feature; }
+
+        void add(CaseOutcome outcome) {
+            Map<String, CaseOutcome> cases = sections.computeIfAbsent(outcome.subFeature, ignored -> new LinkedHashMap<>());
+            CaseOutcome existing = cases.get(outcome.testCase);
+            if (existing == null) { cases.put(outcome.testCase, outcome); return; }
+            existing.passed += outcome.passed; existing.failed += outcome.failed;
+        }
+
+        TreeItem<OverviewRow> toTreeItem() {
+            int passed = passed(); int failed = failed(); int testCases = testCaseCount();
+            TreeItem<OverviewRow> featureItem = new TreeItem<>(new OverviewRow(feature.name(), "", "", "", testCases, passed, failed, latest(passed, failed)));
+            featureItem.setExpanded(true);
+            sections.forEach((section, cases) -> {
+                int sectionPassed = cases.values().stream().mapToInt(item -> item.passed).sum();
+                int sectionFailed = cases.values().stream().mapToInt(item -> item.failed).sum();
+                TreeItem<OverviewRow> sectionItem = new TreeItem<>(new OverviewRow(section, "", "", "", cases.size(), sectionPassed, sectionFailed, latest(sectionPassed, sectionFailed)));
+                sectionItem.setExpanded(true);
+                cases.values().forEach(testCase -> sectionItem.getChildren().add(new TreeItem<>(new OverviewRow(testCase.testCase, testCase.description, testCase.input, testCase.expected, 1, testCase.passed, testCase.failed, latest(testCase.passed, testCase.failed)))));
+                featureItem.getChildren().add(sectionItem);
+            });
+            return featureItem;
+        }
+
+        int testCaseCount() { return sections.values().stream().mapToInt(Map::size).sum(); }
+        int passed() { return sections.values().stream().flatMap(cases -> cases.values().stream()).mapToInt(item -> item.passed).sum(); }
+        int failed() { return sections.values().stream().flatMap(cases -> cases.values().stream()).mapToInt(item -> item.failed).sum(); }
+        private static String latest(int passed, int failed) { return failed > 0 ? "✕ Không đạt" : passed > 0 ? "✓ Đạt" : "Chưa chạy"; }
+    }
 }

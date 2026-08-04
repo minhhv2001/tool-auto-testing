@@ -166,7 +166,7 @@ public final class TestRunnerServiceImpl implements TestRunnerService {
             if (video != null) recordedVideo = video.path();
             browser.close();
         } catch (Throwable error) {
-            unexpectedError = rootMessage(error);
+            unexpectedError = "Lỗi khi chạy kiểm thử: " + rootMessage(error);
             TestRun failedRun = current.withProgress(RunStatus.FAILED, current.progress(), current.passedSteps(),
                     current.failedSteps() + 1, current.currentStep(), unexpectedError, LocalDateTime.now());
             safeListener(() -> listener.onUnexpectedError(failedRun, error));
@@ -278,7 +278,7 @@ public final class TestRunnerServiceImpl implements TestRunnerService {
             } catch (Throwable ignored) {
                 screenshot = null;
             }
-            return new StepResult(rawStep, false, actual, redact(rootMessage(error), variables),
+            return new StepResult(rawStep, false, actual, "Không thực hiện được bước \"" + step.description() + "\": " + redact(rootMessage(error), variables),
                     Duration.between(started, Instant.now()), screenshot);
         }
     }
@@ -305,7 +305,7 @@ public final class TestRunnerServiceImpl implements TestRunnerService {
     }
 
     private static TestStep resolve(TestStep step, Map<String, String> variables) {
-        return new TestStep(step.testCaseId(), step.stepNumber(), step.description(), step.action(),
+        return new TestStep(step.subFeatureName(), step.testCaseId(), step.stepNumber(), step.description(), step.action(),
                 VariableResolver.resolve(step.target(), variables), VariableResolver.resolve(step.input(), variables),
                 VariableResolver.resolve(step.expected(), variables), step.timeoutMs(), step.enabled());
     }

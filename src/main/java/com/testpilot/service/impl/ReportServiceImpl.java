@@ -23,7 +23,7 @@ public final class ReportServiceImpl implements ReportService {
             Files.createDirectories(outputFile.getParent());
             try (Workbook workbook = new XSSFWorkbook(); OutputStream output = Files.newOutputStream(outputFile)) {
                 Sheet summary = workbook.createSheet("Tổng quan");
-                Sheet detail = workbook.createSheet("Kết quả kiểm thử");
+                Sheet detail = workbook.createSheet(safeSheetName(run.featureName()));
                 createSummary(workbook, summary, run, results);
                 createDetail(workbook, detail, results);
                 workbook.write(output);
@@ -38,7 +38,7 @@ public final class ReportServiceImpl implements ReportService {
     public Path writeLog(TestRun run, List<StepResult> results, Path outputFile) {
         StringBuilder log = new StringBuilder();
         log.append("TestPilot Studio - Lần chạy ").append(run.id()).append('\n');
-        log.append("Project: ").append(run.projectName()).append(" / ").append(run.featureName()).append('\n');
+        log.append("Dự án: ").append(run.projectName()).append(" / ").append(run.featureName()).append('\n');
         log.append("Bắt đầu: ").append(run.startedAt().format(TIME)).append("\n\n");
         for (StepResult result : results) {
             log.append(result.passed() ? "ĐẠT" : "KHÔNG ĐẠT").append(" | ")
@@ -61,7 +61,7 @@ public final class ReportServiceImpl implements ReportService {
         CellStyle value = workbook.createCellStyle();
         String[][] values = {
                 {"Mã lần chạy", run.id()},
-                {"Project", run.projectName()},
+                {"Dự án", run.projectName()},
                 {"Chức năng", run.featureName()},
                 {"Tệp đầu vào", run.sourceFile()},
                 {"Bắt đầu", run.startedAt().format(TIME)},
@@ -83,8 +83,8 @@ public final class ReportServiceImpl implements ReportService {
     }
 
     private static void createDetail(Workbook workbook, Sheet sheet, List<StepResult> results) {
-        String[] headers = {"Mã testcase", "Bước", "Thao tác", "Đối tượng", "Dữ liệu vào", "Kết quả mong đợi", "Trạng thái",
-                "Kết quả thực tế", "Lỗi", "Thời lượng (ms)", "Ảnh chụp màn hình"};
+        String[] headers = {"Mã testcase", "Bước", "Mô tả", "Thao tác", "Đối tượng", "Dữ liệu vào", "Kết quả mong đợi",
+                "Thời gian chờ (ms)", "Kích hoạt", "Chức năng con", "Kết quả"};
         Row header = sheet.createRow(0);
         CellStyle headerStyle = headerStyle(workbook, IndexedColors.DARK_BLUE);
         for (int i = 0; i < headers.length; i++) {
@@ -98,22 +98,27 @@ public final class ReportServiceImpl implements ReportService {
             StepResult result = results.get(i);
             Row row = sheet.createRow(i + 1);
             String[] values = {
-                    result.step().testCaseId(), Integer.toString(result.step().stepNumber()),
-                    result.step().action().name(), result.step().target(), result.step().input(),
-                    result.step().expected(), result.passed() ? "ĐẠT" : "KHÔNG ĐẠT", result.actual(),
-                    result.error(), Long.toString(result.duration().toMillis()),
-                    result.screenshot() == null ? "" : result.screenshot().toString()
+                    result.step().testCaseId(), Integer.toString(result.step().stepNumber()), result.step().description(),
+                    result.step().action().name(), result.step().target(), result.step().input(), result.step().expected(),
+                    Integer.toString(result.step().timeoutMs()), Boolean.toString(result.step().enabled()).toUpperCase(),
+                    result.step().subFeatureName(), result.passed() ? "PASS" : "FAIL"
             };
             for (int col = 0; col < values.length; col++) {
                 Cell cell = row.createCell(col);
                 cell.setCellValue(values[col] == null ? "" : values[col]);
-                if (col == 6) cell.setCellStyle(result.passed() ? passStyle : failStyle);
+                if (col == 10) cell.setCellStyle(result.passed() ? passStyle : failStyle);
             }
         }
         sheet.createFreezePane(0, 1);
         sheet.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(0, Math.max(1, results.size()), 0, headers.length - 1));
-        int[] widths = {18, 8, 20, 34, 28, 32, 12, 30, 48, 16, 52};
+        int[] widths = {18, 8, 36, 20, 34, 28, 32, 18, 12, 24, 14};
         for (int i = 0; i < widths.length; i++) sheet.setColumnWidth(i, widths[i] * 256);
+    }
+
+    private static String safeSheetName(String value) {
+        String name = value == null ? "Kết quả kiểm thử" : value.replaceAll("[\\\\/:*?\"<>|]", "-").trim();
+        if (name.isBlank()) name = "Kết quả kiểm thử";
+        return name.length() <= 31 ? name : name.substring(0, 31);
     }
 
     private static CellStyle headerStyle(Workbook workbook, IndexedColors color) {

@@ -3,6 +3,7 @@ package com.testpilot.model.entity;
 import com.testpilot.model.enums.ActionType;
 
 public final class TestStep {
+    private final String subFeatureName;
     private final String testCaseId;
     private final int stepNumber;
     private final String description;
@@ -15,6 +16,12 @@ public final class TestStep {
 
     public TestStep(String testCaseId, int stepNumber, String description, ActionType action,
                     String target, String input, String expected, int timeoutMs, boolean enabled) {
+        this("Chưa phân loại", testCaseId, stepNumber, description, action, target, input, expected, timeoutMs, enabled);
+    }
+
+    public TestStep(String subFeatureName, String testCaseId, int stepNumber, String description, ActionType action,
+                    String target, String input, String expected, int timeoutMs, boolean enabled) {
+        this.subFeatureName = subFeatureName == null || subFeatureName.isBlank() ? "Chưa phân loại" : subFeatureName.trim();
         this.testCaseId = testCaseId;
         this.stepNumber = stepNumber;
         this.description = description;
@@ -24,6 +31,10 @@ public final class TestStep {
         this.expected = expected;
         this.timeoutMs = timeoutMs;
         this.enabled = enabled;
+    }
+
+    public String subFeatureName() {
+        return subFeatureName;
     }
 
     public String testCaseId() {

@@ -38,7 +38,7 @@ public final class ExcelServiceImpl implements ExcelService {
             }
             if (sheet == null) throw new IllegalArgumentException("File Excel không có sheet dữ liệu");
             Row header = firstNonEmptyRow(sheet);
-            if (header == null) throw new IllegalArgumentException("Sheet Automation Steps dang trong");
+            if (header == null) throw new IllegalArgumentException("Sheet \"" + sheet.getSheetName() + "\" đang trống");
             Map<String, Integer> columns = headerMap(header);
             if (!columns.keySet().containsAll(REQUIRED)) {
                 throw new IllegalArgumentException("Thiếu cột bắt buộc: Mã testcase, Bước hoặc Thao tác");
@@ -53,7 +53,7 @@ public final class ExcelServiceImpl implements ExcelService {
                     ActionType action = ActionType.fromCell(cell(row, columns, "action", formatter));
                     int timeout = parseIntOrDefault(cell(row, columns, "timeoutms", formatter), 15_000);
                     boolean enabled = parseEnabled(cell(row, columns, "enabled", formatter));
-                    steps.add(new TestStep(testCaseId, stepNumber,
+                    steps.add(new TestStep(cell(row, columns, "subfeature", formatter), testCaseId, stepNumber,
                             cell(row, columns, "description", formatter), action,
                             cell(row, columns, "target", formatter),
                             cell(row, columns, "input", formatter),
@@ -110,6 +110,7 @@ public final class ExcelServiceImpl implements ExcelService {
             case "step": case "buoc": case "thu tu": case "thutu": return "step";
             case "action": case "thaotac": case "hanhdong": return "action";
             case "description": case "mota": return "description";
+            case "subfeature": case "chucnangcon": case "chucnangchitiet": case "mucchucnang": case "nhomcon": return "subfeature";
             case "target": case "doituong": case "bieu tuong": return "target";
             case "input": case "dulieuvao": case "giatrivao": return "input";
             case "expected": case "ketquamongdoi": return "expected";
