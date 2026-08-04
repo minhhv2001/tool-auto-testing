@@ -1,0 +1,11 @@
+/target/
+/.tooling/
+/.idea/
+/*.iml
+/data/
+/outputs/*
+!/outputs/.gitkeep
+/config/secrets.properties
+*.log
+*.webm
+*.zip
