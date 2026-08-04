@@ -32,12 +32,12 @@ public final class SqliteProjectRepository implements ProjectRepository {
             statement.setString(4, createdAt.toString());
             statement.executeUpdate();
             try (ResultSet keys = statement.getGeneratedKeys()) {
-                if (!keys.next()) throw new SQLException("Khong nhan duoc project id");
+                if (!keys.next()) throw new SQLException("Không nhận được mã project");
                 return new TestProject(keys.getLong(1), request.name().trim(), safe(request.description()),
                         safe(request.baseUrl()), createdAt);
             }
         } catch (SQLException error) {
-            throw new IllegalStateException("Khong tao duoc project: " + error.getMessage(), error);
+            throw new IllegalStateException("Không tạo được project: " + error.getMessage(), error);
         }
     }
 
@@ -53,12 +53,12 @@ public final class SqliteProjectRepository implements ProjectRepository {
             statement.setString(4, createdAt.toString());
             statement.executeUpdate();
             try (ResultSet keys = statement.getGeneratedKeys()) {
-                if (!keys.next()) throw new SQLException("Khong nhan duoc feature id");
+                if (!keys.next()) throw new SQLException("Không nhận được mã chức năng");
                 return new TestFeature(keys.getLong(1), request.projectId(), request.name().trim(),
                         safe(request.description()), createdAt);
             }
         } catch (SQLException error) {
-            throw new IllegalStateException("Khong tao duoc chuc nang: " + error.getMessage(), error);
+            throw new IllegalStateException("Không tạo được chức năng: " + error.getMessage(), error);
         }
     }
 
@@ -71,7 +71,7 @@ public final class SqliteProjectRepository implements ProjectRepository {
             while (rows.next()) projects.add(mapProject(rows));
             return projects;
         } catch (SQLException error) {
-            throw new IllegalStateException("Khong doc duoc danh sach project", error);
+            throw new IllegalStateException("Không đọc được danh sách project", error);
         }
     }
 
@@ -91,7 +91,7 @@ public final class SqliteProjectRepository implements ProjectRepository {
             }
             return features;
         } catch (SQLException error) {
-            throw new IllegalStateException("Khong doc duoc danh sach chuc nang", error);
+            throw new IllegalStateException("Không đọc được danh sách chức năng", error);
         }
     }
 
@@ -104,7 +104,27 @@ public final class SqliteProjectRepository implements ProjectRepository {
                 return rows.next() ? Optional.of(mapProject(rows)) : Optional.empty();
             }
         } catch (SQLException error) {
-            throw new IllegalStateException("Khong doc duoc project", error);
+            throw new IllegalStateException("Không đọc được project", error);
+        }
+    }
+
+    @Override
+    public void deleteProject(long projectId) {
+        try (Connection connection = database.open()) {
+            connection.setAutoCommit(false);
+            try (PreparedStatement runs = connection.prepareStatement("DELETE FROM test_runs WHERE project_id=?");
+                 PreparedStatement features = connection.prepareStatement("DELETE FROM features WHERE project_id=?");
+                 PreparedStatement project = connection.prepareStatement("DELETE FROM projects WHERE id=?")) {
+                runs.setLong(1, projectId); runs.executeUpdate();
+                features.setLong(1, projectId); features.executeUpdate();
+                project.setLong(1, projectId); project.executeUpdate();
+                connection.commit();
+            } catch (SQLException error) {
+                connection.rollback();
+                throw error;
+            }
+        } catch (SQLException error) {
+            throw new IllegalStateException("Không xóa được project: " + error.getMessage(), error);
         }
     }
 

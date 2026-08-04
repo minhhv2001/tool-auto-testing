@@ -18,7 +18,7 @@ public final class VariableResolver {
             String key = matcher.group(1);
             String value = variables.get(key);
             if (value == null) {
-                throw new IllegalArgumentException("Chua cau hinh bien ${" + key + "}");
+                throw new IllegalArgumentException("Chưa cấu hình biến ${" + key + "}");
             }
             matcher.appendReplacement(output, Matcher.quoteReplacement(value));
         }

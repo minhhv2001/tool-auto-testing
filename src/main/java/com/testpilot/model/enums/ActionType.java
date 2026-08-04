@@ -21,7 +21,7 @@ public enum ActionType {
 
     public static ActionType fromCell(String value) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Action khong duoc de trong");
+            throw new IllegalArgumentException("Thao tác không được để trống");
         }
         String normalized = value.trim()
                 .replaceAll("([a-z])([A-Z])", "$1_$2")

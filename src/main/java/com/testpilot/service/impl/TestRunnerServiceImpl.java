@@ -54,21 +54,32 @@ public final class TestRunnerServiceImpl implements TestRunnerService {
     @Override
     public TestRun start(RunTestRequest request, RunEventListener listener) {
         validate(request);
-        ImportResult imported = excelService.importAutomationSteps(request.excelFile());
+        ImportResult imported = excelService.importAutomationSteps(request.excelFile(), request.feature().name());
         List<TestStep> steps = imported.steps().stream()
                 .filter(TestStep::enabled)
                 .collect(Collectors.toList());
         String id = ID_TIME.format(LocalDateTime.now()) + "-" + UUID.randomUUID().toString().substring(0, 6);
-        Path artifactDirectory = config.outputDirectory().resolve(id);
+        Path projectDirectory = config.projectDirectory(request.project().id(), request.project().name());
+        Path excelDirectory = projectDirectory.resolve("excel");
+        Path storedExcel = excelDirectory.resolve(request.excelFile().getFileName().toString());
+        try {
+            Files.createDirectories(excelDirectory);
+            if (!request.excelFile().toAbsolutePath().normalize().equals(storedExcel.toAbsolutePath().normalize())) {
+                Files.copy(request.excelFile(), storedExcel, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException error) {
+            throw new IllegalStateException("Không lưu được file Excel vào thư mục project", error);
+        }
+        Path artifactDirectory = projectDirectory.resolve("runs").resolve(id);
         try {
             Files.createDirectories(artifactDirectory.resolve("screenshots"));
             Files.createDirectories(artifactDirectory.resolve("video"));
         } catch (IOException error) {
-            throw new IllegalStateException("Khong tao duoc thu muc ket qua", error);
+            throw new IllegalStateException("Không tạo được thư mục kết quả", error);
         }
         TestRun run = new TestRun(id, request.project().id(), request.feature().id(),
-                request.project().name(), request.feature().name(), request.excelFile().toString(),
-                RunStatus.QUEUED, 0, 0, 0, "Dang cho", "", LocalDateTime.now(), null, artifactDirectory);
+                request.project().name(), request.feature().name(), storedExcel.toString(),
+                RunStatus.QUEUED, 0, 0, 0, "Đang chờ", "", LocalDateTime.now(), null, artifactDirectory);
         runRepository.save(run);
         AtomicBoolean cancelled = new AtomicBoolean(false);
         cancellation.put(id, cancelled);
@@ -179,7 +190,7 @@ public final class TestRunnerServiceImpl implements TestRunnerService {
         String finalError = !unexpectedError.isBlank() ? unexpectedError
                 : results.stream().filter(result -> !result.passed()).map(StepResult::error).findFirst().orElse("");
         TestRun finished = current.withProgress(finalStatus, finalProgress, passed, failed,
-                finalStatus == RunStatus.CANCELLED ? "Da dung" : "Hoan tat", finalError, LocalDateTime.now());
+                        finalStatus == RunStatus.CANCELLED ? "Đã dừng" : "Hoàn tất", finalError, LocalDateTime.now());
         runRepository.update(finished);
         reportService.writeExcelReport(finished, results, report);
         reportService.writeLog(finished, results, log);
@@ -234,11 +245,11 @@ public final class TestRunnerServiceImpl implements TestRunnerService {
                     break;
                 case EXPECT_VISIBLE:
                     assertTrue(LocatorResolver.resolve(page, step.target()).isVisible(),
-                            "Phan tu khong hien thi: " + step.target());
+                            "Phần tử không hiển thị: " + step.target());
                     break;
                 case EXPECT_HIDDEN:
                     assertTrue(!LocatorResolver.resolve(page, step.target()).isVisible(),
-                            "Phan tu van dang hien thi: " + step.target());
+                            "Phần tử vẫn đang hiển thị: " + step.target());
                     break;
                 case EXPECT_URL:
                     actual = page.url();
@@ -249,11 +260,11 @@ public final class TestRunnerServiceImpl implements TestRunnerService {
                     List<String> rows = locator.allInnerTexts();
                     actual = String.join(" | ", rows);
                     String expected = firstNotBlank(step.expected(), step.input());
-                    assertTrue(!rows.isEmpty(), "Bang ket qua khong co dong nao");
+                    assertTrue(!rows.isEmpty(), "Bảng kết quả không có dòng nào");
                     List<String> invalid = rows.stream()
                             .filter(text -> !containsIgnoreCase(text, expected))
                             .collect(Collectors.toList());
-                    assertTrue(invalid.isEmpty(), "Co " + invalid.size() + " dong khong chua '" + expected + "'");
+                    assertTrue(invalid.isEmpty(), "Có " + invalid.size() + " dòng không chứa '" + expected + "'");
                     break;
                 case SCREENSHOT:
                     // Anh duoc chup o cuoi buoc.
@@ -300,10 +311,10 @@ public final class TestRunnerServiceImpl implements TestRunnerService {
     }
 
     private static void validate(RunTestRequest request) {
-        Objects.requireNonNull(request, "Thieu yeu cau chay test");
-        Objects.requireNonNull(request.project(), "Hay chon project");
-        Objects.requireNonNull(request.feature(), "Hay chon chuc nang");
-        Objects.requireNonNull(request.excelFile(), "Hay chon file Excel");
+        Objects.requireNonNull(request, "Thiếu yêu cầu chạy kiểm thử");
+        Objects.requireNonNull(request.project(), "Hãy chọn project");
+        Objects.requireNonNull(request.feature(), "Hãy chọn chức năng");
+        Objects.requireNonNull(request.excelFile(), "Hãy chọn file Excel");
     }
 
     private static String firstNotBlank(String first, String fallback) {
@@ -312,7 +323,7 @@ public final class TestRunnerServiceImpl implements TestRunnerService {
 
     private static void assertContains(String actual, String expected, String field) {
         assertTrue(containsIgnoreCase(actual, expected),
-                field + " thuc te khong chua '" + expected + "'. Thuc te: " + actual);
+                field + " thực tế không chứa '" + expected + "'. Thực tế: " + actual);
     }
 
     private static boolean containsIgnoreCase(String value, String expected) {

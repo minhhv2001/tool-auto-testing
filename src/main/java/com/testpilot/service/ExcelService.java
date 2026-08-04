@@ -6,4 +6,8 @@ import java.nio.file.Path;
 
 public interface ExcelService {
     ImportResult importAutomationSteps(Path file);
+
+    default ImportResult importAutomationSteps(Path file, String sheetName) {
+        return importAutomationSteps(file);
+    }
 }

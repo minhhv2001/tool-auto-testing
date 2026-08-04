@@ -45,6 +45,7 @@
 .nav-button:hover {
     -fx-background-color: rgba(64, 154, 255, 0.12);
     -fx-text-fill: white;
+    -fx-translate-x: 2px;
 }
 
 .nav-button:selected {
@@ -119,6 +120,7 @@
 .primary-button:hover { -fx-background-color: linear-gradient(to right, #0f5ccc, #3545c7); }
 .secondary-button { -fx-background-color: #f5f7fb; -fx-text-fill: #30415f; -fx-border-color: #dfe5ef; -fx-border-radius: 9; }
 .secondary-button:hover { -fx-background-color: #eaf0f9; }
+.secondary-button:pressed, .primary-button:pressed, .danger-button:pressed { -fx-scale-x: 0.98; -fx-scale-y: 0.98; }
 .danger-button { -fx-background-color: #fff0f3; -fx-text-fill: #c3294d; -fx-border-color: #ffcbd6; -fx-border-radius: 9; }
 .icon-button { -fx-background-color: #edf3ff; -fx-text-fill: #2467dc; -fx-padding: 7 11; }
 .run-button { -fx-padding: 14 20; -fx-font-size: 13px; }
@@ -138,6 +140,8 @@
 .tree-cell { -fx-background-color: transparent; -fx-padding: 10 8; -fx-text-fill: #41506a; }
 .tree-cell:selected { -fx-background-color: #edf4ff; -fx-background-radius: 8; -fx-text-fill: #1f5fce; }
 .tree-cell:hover { -fx-background-color: #f5f7fb; -fx-background-radius: 8; }
+.project-tree-item { -fx-font-weight: 750; }
+.feature-tree-item { -fx-text-fill: #52627d; }
 
 .table-view .column-header-background { -fx-background-color: #f7f9fc; -fx-background-radius: 8 8 0 0; }
 .table-view .column-header { -fx-background-color: transparent; -fx-size: 40; }
@@ -194,6 +198,11 @@
 .preview-placeholder { -fx-text-fill: #7e96bd; -fx-font-size: 11px; -fx-font-weight: 700; -fx-line-spacing: 5px; }
 .current-step { -fx-background-color: #f2f6fd; -fx-background-radius: 8; -fx-padding: 9 12; -fx-text-fill: #344561; }
 .error-text { -fx-text-fill: #c72f50; -fx-font-size: 11px; }
+.error-list { -fx-background-color: #fff8fa; -fx-border-color: #ffd9e1; -fx-border-radius: 8; -fx-background-radius: 8; }
+.error-list .list-cell { -fx-text-fill: #a82949; -fx-background-color: transparent; -fx-padding: 8 10; -fx-wrap-text: true; }
+.filter-bar { -fx-background-color: #f8fafd; -fx-background-radius: 9; -fx-padding: 10; -fx-alignment: CENTER_LEFT; }
+.filter-bar .label { -fx-text-fill: #65738c; -fx-font-weight: 700; }
+.combo-box { -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #dfe5ef; -fx-background-color: white; }
 .settings-bullet { -fx-text-fill: #40506b; -fx-padding: 5 0; }
 .action-chip { -fx-background-color: #edf4ff; -fx-background-radius: 18; -fx-text-fill: #255fc2; -fx-font-weight: 700; -fx-padding: 7 11; }
 .check-box { -fx-text-fill: #53627a; }

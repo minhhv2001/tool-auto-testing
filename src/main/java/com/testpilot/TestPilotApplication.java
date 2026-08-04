@@ -37,8 +37,4 @@ public final class TestPilotApplication extends Application {
     public void stop() {
         if (controller != null) controller.close();
     }
-
-    public static void main(String[] args) {
-        launch(args);
-    }
 }

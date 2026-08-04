@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import com.testpilot.model.entity.TestProject;
 
 public final class AppConfig {
     private final Properties properties = new Properties();
@@ -23,7 +24,7 @@ public final class AppConfig {
             try (InputStream input = Files.newInputStream(file)) {
                 config.properties.load(input);
             } catch (IOException error) {
-                throw new IllegalStateException("Khong doc duoc cau hinh: " + file, error);
+                throw new IllegalStateException("Không đọc được cấu hình: " + file, error);
             }
         }
         config.ensureDirectories();
@@ -58,6 +59,39 @@ public final class AppConfig {
         return dataDirectory().resolve("testpilot.db");
     }
 
+    public Path projectDirectory(long projectId, String projectName) {
+        String safeName = projectName == null ? "project" : projectName.trim()
+                .replaceAll("[^\\p{L}\\p{N}._-]+", "-")
+                .replaceAll("-+", "-");
+        if (safeName.isBlank()) safeName = "project";
+        return dataDirectory().resolve("projects").resolve(projectId + "-" + safeName);
+    }
+
+    public Path projectDirectory(TestProject project) {
+        return projectDirectory(project.id(), project.name());
+    }
+
+    public String getConfigured(String key, String defaultValue) {
+        return properties.getProperty(key, defaultValue);
+    }
+
+    public void set(String key, String value) {
+        if (value == null) properties.remove(key);
+        else properties.setProperty(key, value);
+    }
+
+    public void save() {
+        Path file = workingDirectory.resolve("config/application.properties");
+        try {
+            Files.createDirectories(file.getParent());
+            try (java.io.OutputStream output = Files.newOutputStream(file)) {
+                properties.store(output, "Cấu hình TestPilot Studio");
+            }
+        } catch (IOException error) {
+            throw new IllegalStateException("Không lưu được tệp cấu hình: " + file, error);
+        }
+    }
+
     public Map<String, String> testVariables() {
         Map<String, String> result = new HashMap<>();
         properties.stringPropertyNames().stream()
@@ -81,7 +115,7 @@ public final class AppConfig {
             Files.createDirectories(dataDirectory());
             Files.createDirectories(outputDirectory());
         } catch (IOException error) {
-            throw new IllegalStateException("Khong tao duoc thu muc du lieu", error);
+            throw new IllegalStateException("Không tạo được thư mục dữ liệu", error);
         }
     }
 }

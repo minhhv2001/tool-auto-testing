@@ -17,17 +17,17 @@ public final class StatusBadge extends Label {
     private static String textFor(RunStatus status) {
         switch (status) {
             case QUEUED:
-                return "CHO CHAY";
+                return "ĐANG CHỜ";
             case RUNNING:
-                return "DANG CHAY";
+                return "ĐANG CHẠY";
             case PASSED:
-                return "PASS";
+                return "ĐẠT";
             case FAILED:
-                return "FAIL";
+                return "KHÔNG ĐẠT";
             case CANCELLED:
-                return "DA DUNG";
+                return "ĐÃ DỪNG";
             default:
-                throw new IllegalArgumentException("Trang thai khong hop le: " + status);
+                throw new IllegalArgumentException("Trạng thái không hợp lệ: " + status);
         }
     }
 }

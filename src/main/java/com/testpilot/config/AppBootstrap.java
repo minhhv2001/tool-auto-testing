@@ -26,10 +26,10 @@ public final class AppBootstrap {
         database.initialize();
         ProjectRepository projectRepository = new SqliteProjectRepository(database);
         RunRepository runRepository = new SqliteRunRepository(database);
-        ProjectService projectService = new ProjectServiceImpl(projectRepository);
+        ProjectService projectService = new ProjectServiceImpl(projectRepository, config);
         ExcelService excelService = new ExcelServiceImpl();
         ReportService reportService = new ReportServiceImpl();
         TestRunnerService runnerService = new TestRunnerServiceImpl(config, excelService, reportService, runRepository);
-        return new AppController(projectService, excelService, runnerService);
+        return new AppController(projectService, excelService, runnerService, config);
     }
 }

@@ -33,7 +33,7 @@ TestPilot Studio la ung dung desktop JavaFX de chay UI/E2E test tren website the
    exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install chromium"
    ```
 
-5. Chay class `com.testpilot.TestPilotApplication` hoac Maven goal:
+5. Chay run configuration **TestPilot Studio**, class `com.testpilot.Launcher`, hoac Maven goal:
 
    ```bash
    mvn javafx:run

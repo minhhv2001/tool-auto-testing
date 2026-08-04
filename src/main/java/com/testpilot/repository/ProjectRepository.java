@@ -18,4 +18,6 @@ public interface ProjectRepository {
     List<TestFeature> findFeatures(long projectId);
 
     Optional<TestProject> findProject(long projectId);
+
+    void deleteProject(long projectId);
 }

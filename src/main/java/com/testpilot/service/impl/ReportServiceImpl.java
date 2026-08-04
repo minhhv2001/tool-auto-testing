@@ -22,26 +22,26 @@ public final class ReportServiceImpl implements ReportService {
         try {
             Files.createDirectories(outputFile.getParent());
             try (Workbook workbook = new XSSFWorkbook(); OutputStream output = Files.newOutputStream(outputFile)) {
-                Sheet summary = workbook.createSheet("Summary");
-                Sheet detail = workbook.createSheet("Test Results");
+                Sheet summary = workbook.createSheet("Tổng quan");
+                Sheet detail = workbook.createSheet("Kết quả kiểm thử");
                 createSummary(workbook, summary, run, results);
                 createDetail(workbook, detail, results);
                 workbook.write(output);
             }
             return outputFile;
         } catch (IOException error) {
-            throw new IllegalStateException("Khong xuat duoc bao cao Excel", error);
+            throw new IllegalStateException("Không xuất được báo cáo Excel", error);
         }
     }
 
     @Override
     public Path writeLog(TestRun run, List<StepResult> results, Path outputFile) {
         StringBuilder log = new StringBuilder();
-        log.append("TestPilot Studio - Run ").append(run.id()).append('\n');
+        log.append("TestPilot Studio - Lần chạy ").append(run.id()).append('\n');
         log.append("Project: ").append(run.projectName()).append(" / ").append(run.featureName()).append('\n');
-        log.append("Started: ").append(run.startedAt().format(TIME)).append("\n\n");
+        log.append("Bắt đầu: ").append(run.startedAt().format(TIME)).append("\n\n");
         for (StepResult result : results) {
-            log.append(result.passed() ? "PASS" : "FAIL").append(" | ")
+            log.append(result.passed() ? "ĐẠT" : "KHÔNG ĐẠT").append(" | ")
                     .append(result.step().testCaseId()).append(" #").append(result.step().stepNumber())
                     .append(" | ").append(result.step().action()).append(" | ")
                     .append(result.duration().toMillis()).append(" ms");
@@ -52,7 +52,7 @@ public final class ReportServiceImpl implements ReportService {
             Files.writeString(outputFile, log.toString(), StandardCharsets.UTF_8);
             return outputFile;
         } catch (IOException error) {
-            throw new IllegalStateException("Khong ghi duoc log", error);
+            throw new IllegalStateException("Không ghi được nhật ký", error);
         }
     }
 
@@ -60,14 +60,14 @@ public final class ReportServiceImpl implements ReportService {
         CellStyle label = headerStyle(workbook, IndexedColors.DARK_BLUE);
         CellStyle value = workbook.createCellStyle();
         String[][] values = {
-                {"Run ID", run.id()},
+                {"Mã lần chạy", run.id()},
                 {"Project", run.projectName()},
-                {"Chuc nang", run.featureName()},
-                {"File dau vao", run.sourceFile()},
-                {"Bat dau", run.startedAt().format(TIME)},
-                {"Tong so buoc", Integer.toString(results.size())},
-                {"Pass", Long.toString(results.stream().filter(StepResult::passed).count())},
-                {"Fail", Long.toString(results.stream().filter(result -> !result.passed()).count())}
+                {"Chức năng", run.featureName()},
+                {"Tệp đầu vào", run.sourceFile()},
+                {"Bắt đầu", run.startedAt().format(TIME)},
+                {"Tổng số bước", Integer.toString(results.size())},
+                {"Đạt", Long.toString(results.stream().filter(StepResult::passed).count())},
+                {"Không đạt", Long.toString(results.stream().filter(result -> !result.passed()).count())}
         };
         for (int i = 0; i < values.length; i++) {
             Row row = sheet.createRow(i);
@@ -83,8 +83,8 @@ public final class ReportServiceImpl implements ReportService {
     }
 
     private static void createDetail(Workbook workbook, Sheet sheet, List<StepResult> results) {
-        String[] headers = {"TestCaseID", "Step", "Action", "Target", "Input", "Expected", "Status",
-                "Actual", "Error", "Duration (ms)", "Screenshot"};
+        String[] headers = {"Mã testcase", "Bước", "Thao tác", "Đối tượng", "Dữ liệu vào", "Kết quả mong đợi", "Trạng thái",
+                "Kết quả thực tế", "Lỗi", "Thời lượng (ms)", "Ảnh chụp màn hình"};
         Row header = sheet.createRow(0);
         CellStyle headerStyle = headerStyle(workbook, IndexedColors.DARK_BLUE);
         for (int i = 0; i < headers.length; i++) {
@@ -100,7 +100,7 @@ public final class ReportServiceImpl implements ReportService {
             String[] values = {
                     result.step().testCaseId(), Integer.toString(result.step().stepNumber()),
                     result.step().action().name(), result.step().target(), result.step().input(),
-                    result.step().expected(), result.passed() ? "PASS" : "FAIL", result.actual(),
+                    result.step().expected(), result.passed() ? "ĐẠT" : "KHÔNG ĐẠT", result.actual(),
                     result.error(), Long.toString(result.duration().toMillis()),
                     result.screenshot() == null ? "" : result.screenshot().toString()
             };

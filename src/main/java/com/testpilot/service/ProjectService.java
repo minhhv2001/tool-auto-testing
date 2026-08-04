@@ -15,4 +15,6 @@ public interface ProjectService {
     List<TestProject> getProjects();
 
     List<TestFeature> getFeatures(long projectId);
+
+    void deleteProject(long projectId);
 }

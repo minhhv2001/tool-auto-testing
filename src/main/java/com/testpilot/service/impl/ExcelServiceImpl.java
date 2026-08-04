@@ -18,21 +18,30 @@ public final class ExcelServiceImpl implements ExcelService {
 
     @Override
     public ImportResult importAutomationSteps(Path file) {
+        return importAutomationSteps(file, null);
+    }
+
+    @Override
+    public ImportResult importAutomationSteps(Path file, String requestedSheet) {
         if (file == null || !Files.isRegularFile(file)) {
-            throw new IllegalArgumentException("File Excel khong ton tai");
+            throw new IllegalArgumentException("File Excel không tồn tại");
         }
         List<String> warnings = new ArrayList<>();
         List<TestStep> steps = new ArrayList<>();
         try (InputStream input = Files.newInputStream(file); Workbook workbook = WorkbookFactory.create(input)) {
-            Sheet sheet = workbook.getSheet(AUTOMATION_SHEET);
+            Sheet sheet = requestedSheet == null ? null : findSheet(workbook, requestedSheet);
+            if (sheet == null) sheet = workbook.getSheet(AUTOMATION_SHEET);
             if (sheet == null) {
-                throw new IllegalArgumentException("File can co sheet '" + AUTOMATION_SHEET + "'");
+                for (Sheet candidate : workbook) {
+                    if (firstNonEmptyRow(candidate) != null) { sheet = candidate; break; }
+                }
             }
+            if (sheet == null) throw new IllegalArgumentException("File Excel không có sheet dữ liệu");
             Row header = firstNonEmptyRow(sheet);
             if (header == null) throw new IllegalArgumentException("Sheet Automation Steps dang trong");
             Map<String, Integer> columns = headerMap(header);
             if (!columns.keySet().containsAll(REQUIRED)) {
-                throw new IllegalArgumentException("Thieu cot bat buoc: TestCaseID, Step hoac Action");
+                throw new IllegalArgumentException("Thiếu cột bắt buộc: Mã testcase, Bước hoặc Thao tác");
             }
             DataFormatter formatter = new DataFormatter();
             for (int index = header.getRowNum() + 1; index <= sheet.getLastRowNum(); index++) {
@@ -50,16 +59,24 @@ public final class ExcelServiceImpl implements ExcelService {
                             cell(row, columns, "input", formatter),
                             cell(row, columns, "expected", formatter), timeout, enabled));
                 } catch (RuntimeException error) {
-                    throw new IllegalArgumentException("Dong Excel " + (index + 1) + ": " + error.getMessage(), error);
+                    throw new IllegalArgumentException("Dòng Excel " + (index + 1) + ": " + error.getMessage(), error);
                 }
             }
         } catch (IOException error) {
-            throw new IllegalStateException("Khong doc duoc file Excel", error);
+            throw new IllegalStateException("Không đọc được file Excel", error);
         }
         steps.sort(Comparator.comparing(TestStep::testCaseId).thenComparingInt(TestStep::stepNumber));
-        if (steps.isEmpty()) throw new IllegalArgumentException("Khong co buoc test hop le");
-        if (steps.stream().noneMatch(TestStep::enabled)) warnings.add("Tat ca cac buoc dang bi tat");
+        if (steps.isEmpty()) throw new IllegalArgumentException("Không có bước kiểm thử hợp lệ");
+        if (steps.stream().noneMatch(TestStep::enabled)) warnings.add("Tất cả các bước đang bị tắt");
         return new ImportResult(List.copyOf(steps), List.copyOf(warnings));
+    }
+
+    private static Sheet findSheet(Workbook workbook, String requestedSheet) {
+        String wanted = normalize(requestedSheet);
+        for (Sheet sheet : workbook) {
+            if (normalize(sheet.getSheetName()).equals(wanted)) return sheet;
+        }
+        return null;
     }
 
     private static Row firstNonEmptyRow(Sheet sheet) {
@@ -73,14 +90,33 @@ public final class ExcelServiceImpl implements ExcelService {
         DataFormatter formatter = new DataFormatter();
         Map<String, Integer> result = new HashMap<>();
         for (Cell cell : row) {
-            String key = normalize(formatter.formatCellValue(cell));
+            String key = canonicalHeader(formatter.formatCellValue(cell));
             if (!key.isBlank()) result.put(key, cell.getColumnIndex());
         }
         return result;
     }
 
     private static String normalize(String value) {
-        return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+        if (value == null) return "";
+        String normalized = java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+        return normalized.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+    }
+
+    private static String canonicalHeader(String value) {
+        String key = normalize(value);
+        switch (key) {
+            case "testcaseid": case "matestcase": case "matestcaseid": case "mactestcase": return "testcaseid";
+            case "step": case "buoc": case "thu tu": case "thutu": return "step";
+            case "action": case "thaotac": case "hanhdong": return "action";
+            case "description": case "mota": return "description";
+            case "target": case "doituong": case "bieu tuong": return "target";
+            case "input": case "dulieuvao": case "giatrivao": return "input";
+            case "expected": case "ketquamongdoi": return "expected";
+            case "timeoutms": case "thoigiancho": case "thoigianchoms": return "timeoutms";
+            case "enabled": case "kichhoat": case "bat": return "enabled";
+            default: return key;
+        }
     }
 
     private static String cell(Row row, Map<String, Integer> columns, String name, DataFormatter formatter) {

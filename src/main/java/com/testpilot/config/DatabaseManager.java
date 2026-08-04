@@ -60,7 +60,7 @@ public final class DatabaseManager {
                             "artifact_directory TEXT NOT NULL" +
                             ")");
         } catch (SQLException error) {
-            throw new IllegalStateException("Khong khoi tao duoc SQLite", error);
+            throw new IllegalStateException("Không khởi tạo được SQLite", error);
         }
     }
 }

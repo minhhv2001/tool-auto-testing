@@ -10,6 +10,7 @@ import com.testpilot.model.response.ImportResult;
 import com.testpilot.model.response.RunSummary;
 import com.testpilot.model.response.StepResult;
 import com.testpilot.service.*;
+import com.testpilot.config.AppConfig;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -26,16 +27,18 @@ public final class AppController implements AutoCloseable {
     private final ProjectService projectService;
     private final ExcelService excelService;
     private final TestRunnerService runnerService;
+    private final AppConfig config;
     private final ObservableList<TestProject> projects = FXCollections.observableArrayList();
     private final ObservableList<TestRun> runs = FXCollections.observableArrayList();
     private final List<Consumer<TestRun>> runObservers = new ArrayList<>();
     private final List<BiConsumer<TestRun, Path>> previewObservers = new ArrayList<>();
     private final List<Consumer<RunSummary>> completionObservers = new ArrayList<>();
 
-    public AppController(ProjectService projectService, ExcelService excelService, TestRunnerService runnerService) {
+    public AppController(ProjectService projectService, ExcelService excelService, TestRunnerService runnerService, AppConfig config) {
         this.projectService = projectService;
         this.excelService = excelService;
         this.runnerService = runnerService;
+        this.config = config;
         reload();
     }
 
@@ -58,12 +61,27 @@ public final class AppController implements AutoCloseable {
     }
 
     public TestFeature createFeature(TestProject project, String name, String description) {
-        if (project == null) throw new IllegalArgumentException("Hay chon project truoc");
+        if (project == null) throw new IllegalArgumentException("Hãy chọn project trước");
         return projectService.createFeature(new CreateFeatureRequest(project.id(), name, description));
+    }
+
+    public void deleteProject(TestProject project) {
+        if (project == null) throw new IllegalArgumentException("Hãy chọn project trước");
+        projectService.deleteProject(project.id());
+        projects.removeIf(item -> item.id() == project.id());
+        runs.removeIf(run -> run.projectId() == project.id());
+    }
+
+    public AppConfig config() {
+        return config;
     }
 
     public ImportResult validateExcel(Path file) {
         return excelService.importAutomationSteps(file);
+    }
+
+    public ImportResult validateExcel(Path file, String sheetName) {
+        return excelService.importAutomationSteps(file, sheetName);
     }
 
     public TestRun startRun(TestProject project, TestFeature feature, Path excelFile,

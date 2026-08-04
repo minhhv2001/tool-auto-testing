@@ -28,7 +28,7 @@ public final class SqliteRunRepository implements RunRepository {
             bind(statement, run);
             statement.executeUpdate();
         } catch (SQLException error) {
-            throw new IllegalStateException("Khong luu duoc tien trinh", error);
+            throw new IllegalStateException("Không lưu được tiến trình", error);
         }
     }
 
@@ -47,7 +47,7 @@ public final class SqliteRunRepository implements RunRepository {
             statement.setString(8, run.id());
             statement.executeUpdate();
         } catch (SQLException error) {
-            throw new IllegalStateException("Khong cap nhat duoc tien trinh", error);
+            throw new IllegalStateException("Không cập nhật được tiến trình", error);
         }
     }
 
@@ -60,7 +60,7 @@ public final class SqliteRunRepository implements RunRepository {
             while (rows.next()) runs.add(map(rows));
             return runs;
         } catch (SQLException error) {
-            throw new IllegalStateException("Khong doc duoc lich su tien trinh", error);
+            throw new IllegalStateException("Không đọc được lịch sử tiến trình", error);
         }
     }
 
